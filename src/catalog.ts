@@ -18,14 +18,14 @@ export const CATALOG: CatalogEntry[] = [
   {
     path: "/v1/snapshot",
     method: "GET",
-    priceUsd: "0.05",
+    priceUsd: "0.02",
     summary: "Current price, 24h change and 24h volume for one topic.",
     returns: ["spot_usd", "change_24h_pct", "volume_24h_usd", "as_of"],
   },
   {
     path: "/v1/history",
     method: "GET",
-    priceUsd: "0.20",
+    priceUsd: "0.05",
     summary: "Trend and risk statistics over 7 and 30 days for one topic.",
     returns: [
       "return_7d_pct",
@@ -38,7 +38,7 @@ export const CATALOG: CatalogEntry[] = [
   {
     path: "/v1/deep",
     method: "GET",
-    priceUsd: "0.50",
+    priceUsd: "0.10",
     summary: "The same trend statistics, rebuilt from a full 90-day window.",
     returns: [
       "return_90d_pct",
@@ -51,7 +51,7 @@ export const CATALOG: CatalogEntry[] = [
   {
     path: "/v1/briefing",
     method: "GET",
-    priceUsd: "1.20",
+    priceUsd: "0.25",
     summary:
       "Flows, sentiment, risk factors, catalysts and a stance. The full analyst note.",
     returns: [

@@ -46,12 +46,15 @@ export const BASE_MAINNET: SettlementChain = {
 export const FACILITATOR_URL = "https://facilitator.pieverse.io/v2";
 
 export function chainByName(name: string | undefined): SettlementChain {
-  switch ((name ?? "kite").trim().toLowerCase()) {
+  // Base is the default: the wallet that funds the demo holds USDC on Base,
+  // so settlement is direct and the facilitator only has to pay gas. Kite
+  // chain is the alternative and costs a bridge to reach from there.
+  switch ((name ?? "base").trim().toLowerCase()) {
     case "":
-    case "kite":
-      return KITE_MAINNET;
     case "base":
       return BASE_MAINNET;
+    case "kite":
+      return KITE_MAINNET;
     default:
       throw new Error(
         `unknown SETTLEMENT_CHAIN "${name}" (want kite or base)`,
