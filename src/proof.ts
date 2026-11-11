@@ -97,7 +97,8 @@ export interface ChainCheck {
   found: boolean;
   block_number: number | null;
   confirmations: number | null;
-  to: string | null;
+  merchant: string | null;
+  recipient: string | null;
   transfers: Array<{ from: string; to: string; value_base_units: string }>;
   matches_receipt: boolean | null;
   note: string;
@@ -105,24 +106,33 @@ export interface ChainCheck {
 
 /**
  * Re-reads one settlement from the chain and checks that a USDC transfer of
- * the expected size landed on the seller's address.
+ * the expected size moved in it.
+ *
+ * The recipient is reported rather than compared against a fixed address: the
+ * money goes to whichever merchant was paid, and the claim being verified is
+ * "this transaction moved exactly this much USDC on this chain".
  */
 export async function verifyStep(
   step: ReceiptStep,
   chain: SettlementChain,
   expectedAmountBaseUnits: string | null,
-  sellerPayTo: string,
 ): Promise<ChainCheck> {
   const base: ChainCheck = {
     tx_hash: step.tx_hash ?? "",
     found: false,
     block_number: null,
     confirmations: null,
-    to: null,
+    merchant: null,
+    recipient: null,
     transfers: [],
     matches_receipt: null,
     note: "",
   };
+  try {
+    base.merchant = new URL(step.url).host;
+  } catch {
+    base.merchant = null;
+  }
   if (!step.tx_hash) {
     base.note = "no transaction hash recorded for this step";
     return base;
@@ -152,20 +162,28 @@ export async function verifyStep(
       const value = BigInt(log.data).toString();
       base.transfers.push({ from, to, value_base_units: value });
     }
-    const paid = base.transfers.find(
-      (transfer) => transfer.to.toLowerCase() === sellerPayTo.toLowerCase(),
-    );
-    if (!paid) {
+    if (base.transfers.length === 0) {
       base.matches_receipt = false;
-      base.note += "; no transfer to the seller address in this transaction";
-    } else if (expectedAmountBaseUnits === null) {
+      base.note += "; no USDC transfer in this transaction";
+      return base;
+    }
+    const matching = base.transfers.filter(
+      (transfer) =>
+        expectedAmountBaseUnits === null ||
+        transfer.value_base_units === expectedAmountBaseUnits,
+    );
+    base.recipient = matching[0]?.to ?? base.transfers[0]?.to ?? null;
+    if (expectedAmountBaseUnits === null) {
       base.matches_receipt = null;
-      base.note += "; transfer found, no expected amount recorded";
+      base.note += "; a USDC transfer was found, no expected amount recorded";
+    } else if (matching.length > 0) {
+      base.matches_receipt = true;
+      base.note += "; a USDC transfer of exactly the expected amount was found";
     } else {
-      base.matches_receipt = paid.value_base_units === expectedAmountBaseUnits;
-      base.note += base.matches_receipt
-        ? "; transfer amount matches the receipt"
-        : `; transfer amount ${paid.value_base_units} does not match the receipt`;
+      base.matches_receipt = false;
+      base.note +=
+        "; USDC transfers were found but none matched the expected amount " +
+        expectedAmountBaseUnits;
     }
     return base;
   } catch (error) {

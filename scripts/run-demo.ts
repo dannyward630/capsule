@@ -71,7 +71,10 @@ async function main() {
       symbol: chain.assetSymbol,
       explorer: chain.explorerUrl,
     },
-    seller: { name: "Kite service catalog", pay_to: seller.address },
+    seller: {
+      name: "Kite service catalog",
+      pay_to: seller.address,
+    },
     steps: run.steps,
     totals: {
       payments: run.steps.filter((step) => step.outcome === "paid").length,

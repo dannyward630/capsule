@@ -63,10 +63,10 @@ async function main() {
     "curl -sD- -o/dev/null '<seller>/v1/snapshot?topic=ETH'",
   );
   add(
-    "Service receiving the payments",
-    receipts.seller.pay_to,
-    "the merchant's own payment requirements",
-    "curl -sD- -o/dev/null '<seller>/v1/snapshot?topic=ETH'",
+    "The service we built, which the Passport could not pay",
+    `${receipts.seller.pay_to} (received nothing)`,
+    "our own Scout merchant's payment requirements",
+    "curl -sD- -o/dev/null 'https://capsule-phi-blond.vercel.app/v1/snapshot?topic=ETH'",
   );
   add(
     "Agent identity",
@@ -80,6 +80,12 @@ async function main() {
       step.tx_hash ?? "not recorded",
       "the settlement response",
       `curl -s "https://api.basescan.org/api?module=proxy&action=eth_getTransactionByHash&txhash=${step.tx_hash}"`,
+    );
+    add(
+      `Merchant that received the payment for ${step.endpoint}`,
+      new URL(step.url).host,
+      "the URL that was paid",
+      `curl -sD- -o/dev/null '${step.url}'`,
     );
   }
 

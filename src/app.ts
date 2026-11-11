@@ -127,7 +127,6 @@ export function createApp(config: AppConfig = readConfig()) {  const app = expre
             step,
             chain,
             dollarsToBaseUnits(step.price_usd, chain.assetDecimals),
-            receipts.seller.pay_to,
           )),
         })),
     );

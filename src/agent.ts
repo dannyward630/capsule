@@ -43,7 +43,8 @@ Every price and every budget figure is in US dollars.
 Reply with JSON only.
 
 Rules:
-- Buy exactly one endpoint per turn, to answer ONE missing fact.
+- Cover ONE fact per turn: the one named in fact_to_cover.
+- Buy exactly one endpoint per turn, to answer that fact.
 - You may buy any endpoint whose price is at most budget_remaining_usd.
 - Covering one fact is worth much more than covering none. Never refuse to buy just because some other fact is unaffordable.
 - If the best endpoint for a fact costs more than the budget, buy a cheaper endpoint that covers it partly, or skip that fact and name it unchecked in the final answer.
@@ -82,6 +83,7 @@ export class Agent {
     const refusals: Array<{ endpoint: string; error_code: string; message: string }> = [];
     const bought = new Set<string>();
     const covered = new Set<string>();
+    const attempted = new Set<string>();
     let pushbacks = 0;
     // Start from the session the user actually signed, so the budget the
     // model is told is the real one and not a guess.
@@ -95,7 +97,18 @@ export class Agent {
 
     for (let index = 0; index < maxSteps; index += 1) {
       const missing = this.options.requiredFacts.filter((fact) => !covered.has(fact));
-      const decision = await this.decide(missing, bought, refusals, evidence, session);
+      // One fact at a time. Asking the model to cover five facts with one
+      // budget makes it do a global feasibility check and buy nothing at all.
+      const untried = missing.filter((fact) => !attempted.has(fact));
+      const factToCover = untried[0] ?? missing[0] ?? null;
+      const decision = await this.decide(
+        factToCover,
+        missing,
+        bought,
+        refusals,
+        evidence,
+        session,
+      );
       if (process.env.DEMO_TRACE) {
         const spentNow = Number(session.spent_total ?? 0);
         const budgetNow = Number(session.max_total_amount ?? this.options.budgetUsd);
@@ -146,18 +159,16 @@ export class Agent {
           data:
             result.x402?.parsed_response_body ?? result.x402?.response_body ?? null,
         });
-        // The cheapest endpoint that answers a missing fact is credited with it.
-        for (const fact of missing) {
-          if (!covered.has(fact)) {
-            covered.add(fact);
-            break;
-          }
+        if (factToCover) {
+          covered.add(factToCover);
+          attempted.add(factToCover);
         }
         session = mergeSession(session, result);
         continue;
       }
 
       if (isCapRefusal(result)) {
+        if (factToCover) attempted.add(factToCover);
         refusals.push({
           endpoint: `${entry.service} ${entry.path} ($${entry.price_usd})`,
           error_code: result.error_code ?? "unknown",
@@ -231,6 +242,7 @@ export class Agent {
   }
 
   private async decide(
+    factToCover: string | null,
     missing: string[],
     bought: Set<string>,
     refusals: Array<{ endpoint: string; error_code: string; message: string }>,
@@ -253,6 +265,7 @@ export class Agent {
           role: "user",
           content: JSON.stringify({
             task: this.options.task,
+            fact_to_cover: factToCover,
             facts_still_missing: missing,
             budget_remaining_usd: `$${remaining.toFixed(6)}`,
             budget_total_usd: `$${budget.toFixed(6)}`,
