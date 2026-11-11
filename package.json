@@ -10,8 +10,8 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env --import tsx --watch src/main.ts",
     "start": "node --env-file-if-exists=.env --import tsx src/main.ts",
-    "demo": "node --env-file-if-exists=.env --import tsx scripts/run-demo.ts",
-    "claims": "node --env-file-if-exists=.env --import tsx scripts/generate-claims.ts",
+    "demo": "node --env-file=.env --import tsx scripts/run-demo.ts",
+    "claims": "node --env-file=.env --import tsx scripts/generate-claims.ts",
     "test": "node --import tsx --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
