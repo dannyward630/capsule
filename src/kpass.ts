@@ -138,6 +138,37 @@ export class Kpass {
     ]);
     return parseJson(stdout);
   }
+
+  /**
+   * The session this agent is bound to, with the limits the user signed.
+   *
+   * The agent is told the total budget. The per-transaction ceiling belongs to
+   * the Passport and is deliberately not surfaced here: discovering it is part
+   * of what the product demonstrates.
+   */
+  async currentSession(): Promise<{
+    session_id: string | null;
+    max_total_amount: string | null;
+    max_amount_per_tx: string | null;
+    spent_total: string | null;
+  } | null> {
+    const { stdout } = await this.run(["session", "list", "--output", "json"]);
+    const parsed = parseJson(stdout) as {
+      sessions?: Array<{
+        id?: string;
+        delegation?: { payment_policy?: { max_amount_per_tx?: string; max_total_amount?: string } };
+        usage?: { spent_total?: string };
+      }>;
+    };
+    const session = parsed?.sessions?.[0];
+    if (!session) return null;
+    return {
+      session_id: session.id ?? null,
+      max_total_amount: session.delegation?.payment_policy?.max_total_amount ?? null,
+      max_amount_per_tx: session.delegation?.payment_policy?.max_amount_per_tx ?? null,
+      spent_total: session.usage?.spent_total ?? null,
+    };
+  }
 }
 
 function parseJson(text: string): unknown {

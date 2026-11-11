@@ -14,7 +14,8 @@
     "claims": "node --env-file=.env --import tsx scripts/generate-claims.ts",
     "test": "node --import tsx --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "await-approval": "npx tsx scripts/await-approval.ts"
+    "await-approval": "npx tsx scripts/await-approval.ts",
+    "menu": "npx tsx scripts/build-menu.ts"
   },
   "dependencies": {
     "@x402/core": "^2.25.0",

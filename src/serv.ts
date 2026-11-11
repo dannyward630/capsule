@@ -139,6 +139,7 @@ export class ServClient {
   /** Writes the final answer from the evidence the agent was able to buy. */
   async answer(input: {
     task: string;
+    requiredFacts?: string[];
     evidence: Array<{ endpoint: string; data: unknown }>;
     refusals: Array<{ endpoint: string; error_code: string; message: string }>;
     session: { max_amount_per_tx: string | null; max_total_amount: string | null; spent_total: string | null };
@@ -156,6 +157,7 @@ export class ServClient {
     };
     const instruction = `Answer the task using only the evidence below.
 If a purchase was refused by the spending session, say plainly what you could not check and why.
+The facts the answer must be grounded in are listed. For each one, state whether your evidence covers it.
 Do not invent a figure that is not in the evidence.
 Task: ${input.task}`;
     try {

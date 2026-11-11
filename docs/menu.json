@@ -1,0 +1,429 @@
+{
+  "generated_at": "2026-11-11T19:33:41.870Z",
+  "source": "ksearch service get (the live Kite service catalog)",
+  "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+  "chain": "eip155:8453",
+  "endpoints": [
+    {
+      "id": "e01",
+      "service": "Agent402 Tools",
+      "method": "GET",
+      "path": "/api/block-info",
+      "url": "https://agent402.tools/api/block-info?block=latest&network=base",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Header-level detail for one block on Ethereum, Base, Polygon, Arbitrum, or Optimism: hash, timestamp (unix + ISO), transaction count, gas used/limit, base fee. Pass a block number, 0x hex, or \"latest\". Keyless multi-endpoint failover.",
+      "query_params": [
+        "block",
+        "network"
+      ]
+    },
+    {
+      "id": "e02",
+      "service": "Agent402 Tools",
+      "method": "GET",
+      "path": "/api/chain-info",
+      "url": "https://agent402.tools/api/chain-info?network=base",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "One-call chain state snapshot: chain id, latest block number, and current gas price (wei + gwei) for Ethereum, Base, Polygon, Arbitrum, or Optimism. Keyless multi-endpoint failover.",
+      "query_params": [
+        "network"
+      ]
+    },
+    {
+      "id": "e03",
+      "service": "Agent402 Tools",
+      "method": "GET",
+      "path": "/api/chain/nonce",
+      "url": "https://agent402.tools/api/chain/nonce?address=0xaBF4FAbd7c416fB67202E5f9002389Fc75e2a9D0&network=base",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "The transaction count of an account, which is the nonce its next transaction must carry. Ask for block \"pending\" to include transactions already in the mempool, which is what you want before signing; the default \"latest\" counts only mined transactions. Returns the count as a d...",
+      "query_params": [
+        "address",
+        "network"
+      ]
+    },
+    {
+      "id": "e04",
+      "service": "Agent402 Tools",
+      "method": "GET",
+      "path": "/api/chain/pending",
+      "url": "https://agent402.tools/api/chain/pending?network=base",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "The chain's pending block: how many transactions are queued for the next block, the base fee they will pay, and the gas already used against the limit. This is the node's own view of what is about to be mined, so it answers \"is the chain congested right now\" without an indexer...",
+      "query_params": [
+        "network"
+      ]
+    },
+    {
+      "id": "e05",
+      "service": "Agent402 Tools",
+      "method": "GET",
+      "path": "/api/chain/storage",
+      "url": "https://agent402.tools/api/chain/storage?address=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&network=base&slot=0x0",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Read one 32-byte storage slot from a contract, the raw state under whatever the source code calls it. Returns the word as hex plus three readings of the same bytes - unsigned integer, address (low 20 bytes) and boolean - because a slot is untyped on chain and only the caller k...",
+      "query_params": [
+        "address",
+        "network",
+        "slot"
+      ]
+    },
+    {
+      "id": "e06",
+      "service": "Agent402 Tools",
+      "method": "GET",
+      "path": "/api/chain/total-supply",
+      "url": "https://agent402.tools/api/chain/total-supply?contract=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913&network=base",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "The circulating total supply of an ERC-20, read from the token contract itself rather than from an aggregator, so it is the number the chain holds at the block you asked for. Returns the raw uint256 and the same figure formatted with the token's own decimals. A contract that d...",
+      "query_params": [
+        "contract",
+        "network"
+      ]
+    },
+    {
+      "id": "e07",
+      "service": "Agent402 Tools",
+      "method": "GET",
+      "path": "/api/country-info",
+      "url": "https://agent402.tools/api/country-info?name=Japan",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Country facts by name or ISO code: official name, capital, region, currencies, languages, timezones, dialing code, TLD, and more. Committed open dataset (world-countries, ODbL, plus the IANA timezone country map) - offline and deterministic.",
+      "query_params": [
+        "name"
+      ]
+    },
+    {
+      "id": "e08",
+      "service": "Agent402 Tools",
+      "method": "GET",
+      "path": "/api/crypto-orderbook",
+      "url": "https://agent402.tools/api/crypto-orderbook?pair=BTC-USD",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "L2 order-book snapshot for a spot pair: best bid/ask, mid price, spread (absolute + %), and the top N aggregated price levels per side (default 25, max 100). Pairs use BASE-QUOTE format (BTC-USD, ETH-USD, SOL-USDC). Read from a U.S. spot exchange's public market-data API - key...",
+      "query_params": [
+        "pair"
+      ]
+    },
+    {
+      "id": "e09",
+      "service": "Agent402 Tools",
+      "method": "GET",
+      "path": "/api/crypto-price",
+      "url": "https://agent402.tools/api/crypto-price?coins=BTC%2CETH%2CSOL&currency=usd",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Live spot price for one or many coins in any quote currency: last price, 24h change, 24h volume and market cap per coin, from a maintained market feed and answered in under a second. Use it when an agent needs a current crypto price to size, compare or display, or a cheap read...",
+      "query_params": [
+        "coins",
+        "currency"
+      ]
+    },
+    {
+      "id": "e10",
+      "service": "Otto AI",
+      "method": "GET",
+      "path": "/base-ecosystem-news",
+      "url": "https://x402.ottoai.services/base-ecosystem-news",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Base-chain ecosystem news for Base-native agents, not the general crypto firehose. Up to 12 Base-scoped headlines from the last 48h, each with its own permalink and publication timestamp, screened against the general /crypto-news feed; `screen` states what was dropped. The AI...",
+      "query_params": []
+    },
+    {
+      "id": "e11",
+      "service": "Otto AI",
+      "method": "GET",
+      "path": "/chain-status",
+      "url": "https://x402.ottoai.services/chain-status",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Base chain status from Otto's configured RPC: latest, safe, finalized and pending heads with validated mined block hashes; pending hash nullable and provisional. Public source ID, per-head observation times and retrieval window disclose non-atomic RPC reads. Base fee, congesti...",
+      "query_params": []
+    },
+    {
+      "id": "e12",
+      "service": "Otto AI",
+      "method": "GET",
+      "path": "/defi-analytics",
+      "url": "https://x402.ottoai.services/defi-analytics?protocol=aave",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Where DeFi capital is flowing — TVL rankings, fastest-growing vs bleeding protocols, chain-by-chain breakdown, and per-protocol deep dives. Track capital rotation and protocol health. Powered by DefiLlama.",
+      "query_params": [
+        "protocol"
+      ]
+    },
+    {
+      "id": "e13",
+      "service": "Otto AI",
+      "method": "GET",
+      "path": "/dns-lookup",
+      "url": "https://x402.ottoai.services/dns-lookup?domain=github.com",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Resolve any domain in one call: A/AAAA, MX, NS, CNAME, SOA and TXT records, plus parsed email-auth posture — SPF policy, DMARC policy, and detected DKIM selectors. A drop-in nslookup/dig replacement for agents, resolved over DNS-over-HTTPS (DoH) with redundant resolvers and au...",
+      "query_params": [
+        "domain"
+      ]
+    },
+    {
+      "id": "e14",
+      "service": "Otto AI",
+      "method": "GET",
+      "path": "/domain-age",
+      "url": "https://x402.ottoai.services/domain-age?domain=coinbase.com",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Domain age and registration intel from authoritative RDAP/WHOIS records: exact creation date, age in days and years, expiration date and days-until-expiry. The fast trust and risk signal agents use to vet a counterparty, link, or sender and to flag newly-registered or soon-to-...",
+      "query_params": [
+        "domain"
+      ]
+    },
+    {
+      "id": "e15",
+      "service": "Otto AI",
+      "method": "GET",
+      "path": "/filtered-news",
+      "url": "https://x402.ottoai.services/filtered-news?topic=DeFi%20airdrops",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "AI-filtered crypto news and Twitter search for non-token topics (airdrops, DeFi trends, etc). Max 2 words.",
+      "query_params": [
+        "topic"
+      ]
+    },
+    {
+      "id": "e16",
+      "service": "Otto AI",
+      "method": "GET",
+      "path": "/funding-rates",
+      "url": "https://x402.ottoai.services/funding-rates?symbol=BTC",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Cross-venue funding-rate arbitrage + crowded-positioning radar: live perp funding rates, open interest, global & top-trader long/short ratios, whale positions, and liquidations across Binance, OKX, Bybit, Hyperliquid, and more. Omit symbol for the whole-market overview; pass o...",
+      "query_params": [
+        "symbol"
+      ]
+    },
+    {
+      "id": "e17",
+      "service": "Otto AI",
+      "method": "GET",
+      "path": "/fx-rates",
+      "url": "https://x402.ottoai.services/fx-rates",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Live + reference foreign-exchange (forex) rates, base USD. LIVE near-real-time mid quotes for the 12 most-traded currencies (EUR, GBP, JPY, CHF, CAD, AUD, NZD, CNY, HKD, SGD, SEK, KRW), refreshed every minute with an honest market-open/stale flag, PLUS the official ECB daily r...",
+      "query_params": []
+    },
+    {
+      "id": "e18",
+      "service": "Otto AI",
+      "method": "GET",
+      "path": "/gas-oracle",
+      "url": "https://x402.ottoai.services/gas-oracle",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Base gas oracle from Otto's own RPC: current base fee (wei+gwei), legacy gas price, and slow/standard/fast EIP-1559 priority-fee tiers (p25/p50/p90 over the last 20 blocks) with a ready-to-sign maxFeePerGas per tier. Unlike the crowded gas shelf it PUBLISHES the formula, so ev...",
+      "query_params": []
+    },
+    {
+      "id": "e19",
+      "service": "Otto AI",
+      "method": "GET",
+      "path": "/meta-intelligence",
+      "url": "https://x402.ottoai.services/meta-intelligence",
+      "price_usd": "0.001",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Otto X402 Router — Meta Intelligence (GET). ?ask=<what data/service you need>&price_cap_usd=&network= returns the best Otto-verified plus live CDP Bazaar x402 candidates with prices, pay_urls and blunt source labels. Non-custodial discovery; identical to POST. Use POST for a l...",
+      "query_params": []
+    },
+    {
+      "id": "e20",
+      "service": "Nansen",
+      "method": "POST",
+      "path": "/api/v1/chains/chain-rank",
+      "url": "https://api.nansen.ai/api/v1/chains/chain-rank",
+      "price_usd": "0.01",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Get chain growth rankings",
+      "query_params": []
+    },
+    {
+      "id": "e21",
+      "service": "Nansen",
+      "method": "POST",
+      "path": "/api/v1/nansen-score/top-tokens",
+      "url": "https://api.nansen.ai/api/v1/nansen-score/top-tokens",
+      "price_usd": "0.01",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Get Nansen Score Top Tokens",
+      "query_params": []
+    },
+    {
+      "id": "e22",
+      "service": "Nansen",
+      "method": "POST",
+      "path": "/api/v1/perp-screener",
+      "url": "https://api.nansen.ai/api/v1/perp-screener",
+      "price_usd": "0.01",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Get Perpetual Contract Screening Data",
+      "query_params": []
+    },
+    {
+      "id": "e23",
+      "service": "Nansen",
+      "method": "POST",
+      "path": "/api/v1/prediction-market/categories",
+      "url": "https://api.nansen.ai/api/v1/prediction-market/categories",
+      "price_usd": "0.01",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Get Prediction Market Categories",
+      "query_params": []
+    },
+    {
+      "id": "e24",
+      "service": "Nansen",
+      "method": "POST",
+      "path": "/api/v1/prediction-market/event-screener",
+      "url": "https://api.nansen.ai/api/v1/prediction-market/event-screener",
+      "price_usd": "0.01",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Get Prediction Market Event Screener",
+      "query_params": []
+    },
+    {
+      "id": "e25",
+      "service": "Nansen",
+      "method": "POST",
+      "path": "/api/v1/prediction-market/market-screener",
+      "url": "https://api.nansen.ai/api/v1/prediction-market/market-screener",
+      "price_usd": "0.01",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Get Prediction Market Screener",
+      "query_params": []
+    },
+    {
+      "id": "e26",
+      "service": "Nansen",
+      "method": "POST",
+      "path": "/api/v1/prediction-market/ohlcv",
+      "url": "https://api.nansen.ai/api/v1/prediction-market/ohlcv",
+      "price_usd": "0.01",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Get Prediction Market OHLCV Candles",
+      "query_params": []
+    },
+    {
+      "id": "e27",
+      "service": "Google Trends (x402Atlas)",
+      "method": "GET",
+      "path": "/related-queries",
+      "url": "https://google-trends.use.x402atlas.com/related-queries?country=us&keyword=solana",
+      "price_usd": "0.03",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Google Trends related queries for a keyword: the searches people run alongside it in a country — top queries scored 0-100 and rising queries with percentage growth, over a time window from the past hour to 2004-present. Keyword expansion for SEO keyword research, content plann...",
+      "query_params": [
+        "country",
+        "keyword"
+      ]
+    },
+    {
+      "id": "e28",
+      "service": "Google Trends (x402Atlas)",
+      "method": "GET",
+      "path": "/related-topics",
+      "url": "https://google-trends.use.x402atlas.com/related-topics?country=us&keyword=bitcoin",
+      "price_usd": "0.03",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Google Trends related topics for a keyword: the subjects and named entities people search alongside it in a country — top topics scored 0-100 and rising topics with percentage growth, over a time window from the past hour to 2004-present. Topic discovery for market research, c...",
+      "query_params": [
+        "country",
+        "keyword"
+      ]
+    },
+    {
+      "id": "e29",
+      "service": "Google Trends (x402Atlas)",
+      "method": "GET",
+      "path": "/trend-over-time",
+      "url": "https://google-trends.use.x402atlas.com/trend-over-time?geo=US&keyword=bitcoin&timeframe=past_12_months",
+      "price_usd": "0.05",
+      "chain": "eip155:8453",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "probe_status": "unknown",
+      "summary": "Google Trends interest over time for a keyword — search interest as a dated 0-100 series with country targeting (geo) and timeframe windows from the past hour back to 2004: daily points for 30/90-day windows, weekly for 12 months/5 years. For keyword trend analysis, search dem...",
+      "query_params": [
+        "geo",
+        "keyword",
+        "timeframe"
+      ]
+    }
+  ]
+}

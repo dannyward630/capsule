@@ -27,8 +27,9 @@ test("the EIP-712 domain is pinned to the token contract", () => {
 });
 
 test("the chain names resolve", () => {
-  assert.equal(chainByName("kite").network, "eip155:2366");
-  assert.equal(chainByName(undefined).network, "eip155:2366");
+  // Base is the default: the demo wallet is funded there.
+  assert.equal(chainByName(undefined).network, "eip155:8453");
   assert.equal(chainByName("base").network, "eip155:8453");
+  assert.equal(chainByName("kite").network, "eip155:2366");
   assert.throws(() => chainByName("polygon"), /unknown SETTLEMENT_CHAIN/);
 });

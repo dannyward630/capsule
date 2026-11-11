@@ -1,26 +1,30 @@
 /**
- * The agent: a reasoning layer that buys data it cannot afford not to buy.
+ * The agent: a reasoning layer that buys real data it cannot afford not to buy.
  *
  * The loop is deliberately small. The model proposes one purchase at a time.
- * The Passport decides whether that purchase is allowed. A refusal is fed
- * back to the model as state, and the model chooses what to do next. Nothing in
+ * The Passport decides whether that purchase is allowed. A refusal is fed back
+ * to the model as state, and the model chooses what to do next. Nothing in
  * this file can raise a limit, because the limit does not live here.
  */
 import { randomUUID } from "node:crypto";
 import { Kpass, isCapRefusal, type KpassResult } from "./kpass.js";
-import { ServClient, type ServChoice } from "./serv.js";
+import { ServClient } from "./serv.js";
+import { loadMenu, type Menu, type MenuEntry } from "./menu.js";
 import type { ReceiptStep } from "./proof.js";
 
 export interface AgentOptions {
+  /** The question the agent has to answer. */
   task: string;
-  sellerBaseUrl: string;
-  sessionId?: string | null;
+  /** The facts the answer must be grounded in. */
+  requiredFacts: string[];
+  /** The total budget the session allows, in dollars. */
+  budgetUsd: number;
   maxSteps?: number;
 }
 
 export interface AgentRun {
   steps: ReceiptStep[];
-  evidence: Array<{ endpoint: string; data: unknown }>;
+  evidence: Array<{ id: string; label: string; data: unknown }>;
   refusals: Array<{ endpoint: string; error_code: string; message: string }>;
   answer: string;
   servCalls: unknown[];
@@ -29,23 +33,36 @@ export interface AgentRun {
     max_amount_per_tx: string | null;
     max_total_amount: string | null;
     spent_total: string | null;
-    assets: string[] | null;
   };
+  coveredFacts: string[];
+  missingFacts: string[];
 }
 
-interface CatalogEntry {
-  path: string;
-  method: string;
-  price_usd: string;
-  summary: string;
-  returns: string[];
+export const SYSTEM_PROMPT = `You are the decision layer of an agent that buys data with real money.
+Every price and every budget figure is in US dollars.
+Reply with JSON only.
+
+Rules:
+- Buy exactly one endpoint per turn, to answer ONE missing fact.
+- You may buy any endpoint whose price is at most budget_remaining_usd.
+- Covering one fact is worth much more than covering none. Never refuse to buy just because some other fact is unaffordable.
+- If the best endpoint for a fact costs more than the budget, buy a cheaper endpoint that covers it partly, or skip that fact and name it unchecked in the final answer.
+- Choose the endpoint that best answers the missing fact, not merely the cheapest one.
+- If a purchase is refused, you will be told; pick a different endpoint, never the same one again.
+- Never name an endpoint that is not on the menu; copy its id exactly.
+- In "reason", say which fact the purchase adds.`;
+
+interface Decision {
+  action: "buy" | "answer";
+  id: string | null;
+  reason: string;
 }
 
 export class Agent {
   private readonly options: AgentOptions;
   private readonly kpass: Kpass;
   private readonly serv: ServClient;
-  private catalog: CatalogEntry[] = [];
+  private menu: Menu | null = null;
 
   constructor(options: AgentOptions, kpass: Kpass, serv: ServClient) {
     this.options = options;
@@ -53,121 +70,105 @@ export class Agent {
     this.serv = serv;
   }
 
-  /** The free catalog. An agent prices its options before it spends anything. */
-  async loadCatalog(): Promise<CatalogEntry[]> {
-    const response = await fetch(
-      `${this.options.sellerBaseUrl.replace(/\/$/, "")}/catalog`,
-    );
-    if (!response.ok) {
-      throw new Error(`catalog HTTP ${response.status}`);
-    }
-    const body = (await response.json()) as { endpoints?: CatalogEntry[] };
-    this.catalog = body.endpoints ?? [];
-    return this.catalog;
+  async loadMenu(): Promise<Menu> {
+    this.menu = await loadMenu();
+    return this.menu;
   }
 
   async run(): Promise<AgentRun> {
     const maxSteps = this.options.maxSteps ?? 8;
     const steps: ReceiptStep[] = [];
-    const evidence: Array<{ endpoint: string; data: unknown }> = [];
+    const evidence: Array<{ id: string; label: string; data: unknown }> = [];
     const refusals: Array<{ endpoint: string; error_code: string; message: string }> = [];
     const bought = new Set<string>();
+    const covered = new Set<string>();
+    let pushbacks = 0;
+    // Start from the session the user actually signed, so the budget the
+    // model is told is the real one and not a guess.
+    const current = await this.kpass.currentSession();
     let session = {
-      session_id: null as string | null,
-      max_amount_per_tx: null as string | null,
-      max_total_amount: null as string | null,
-      spent_total: null as string | null,
-      assets: null as string[] | null,
+      session_id: current?.session_id ?? null,
+      max_amount_per_tx: current?.max_amount_per_tx ?? null,
+      max_total_amount: current?.max_total_amount ?? null,
+      spent_total: current?.spent_total ?? null,
     };
 
     for (let index = 0; index < maxSteps; index += 1) {
-      const decision = await this.serv.decide({
-        purpose: `decision ${index + 1}`,
-        task: this.options.task,
-        catalog: this.catalog.map((entry) => ({
-          path: entry.path,
-          price_usd: entry.price_usd,
-          summary: entry.summary,
-          returns: entry.returns,
-        })),
-        state: {
-          step: index + 1,
-          spent_total: session.spent_total,
-          max_total_amount: session.max_total_amount,
-          max_amount_per_tx: session.max_amount_per_tx,
-          already_bought: [...bought],
-          refusals,
-          evidence_held: evidence.map((item) => item.endpoint),
-        },
-      });
+      const missing = this.options.requiredFacts.filter((fact) => !covered.has(fact));
+      const decision = await this.decide(missing, bought, refusals, evidence, session);
+      if (process.env.DEMO_TRACE) {
+        const spentNow = Number(session.spent_total ?? 0);
+        const budgetNow = Number(session.max_total_amount ?? this.options.budgetUsd);
+        console.log(
+          `  [decision ${index + 1}] action=${decision.action} id=${decision.id ?? "-"} ` +
+            `remaining=${(budgetNow - spentNow).toFixed(6)} budget=${budgetNow} spent=${spentNow} ` +
+            `missing=${missing.length} | ${decision.reason.slice(0, 100)}`,
+        );
+      }
 
-      const choice: ServChoice = decision.choice;
-      if (choice.action !== "buy" || !choice.endpoint) {
+      if (decision.action !== "buy" || !decision.id) {
+        // The model wants to stop, but the answer still has to be grounded in
+        // facts it has not bought. Push back once or twice rather than let it
+        // answer from nothing.
+        if (missing.length > 0 && pushbacks < 2) {
+          pushbacks += 1;
+          continue;
+        }
         break;
       }
-      const entry = this.catalog.find((item) => item.path === choice.endpoint);
+      const entry = this.resolve(decision.id);
       if (!entry) {
         refusals.push({
-          endpoint: choice.endpoint,
+          endpoint: decision.id,
           error_code: "unknown_endpoint",
-          message: `the model asked for ${choice.endpoint}, which is not in the catalog`,
+          message: `the model asked for ${decision.id}, which is not on the menu`,
         });
         continue;
       }
-      const topic = choice.topic ?? "ETH";
-      const key = `${entry.path}?topic=${topic}`;
-      if (bought.has(key)) {
+      if (bought.has(entry.id)) {
         refusals.push({
-          endpoint: key,
+          endpoint: entry.id,
           error_code: "already_bought",
           message: "the model asked for a resource it already holds",
         });
         continue;
       }
 
-      const url = `${this.options.sellerBaseUrl.replace(/\/$/, "")}${entry.path}?topic=${encodeURIComponent(topic)}`;
-      const idempotencyKey = randomUUID();
-      const result = await this.kpass.pay(url, idempotencyKey, entry.method);
-      const step = toStep(index + 1, url, entry, result);
+      const result = await this.kpass.pay(entry.url, randomUUID(), entry.method);
+      const step = toStep(index + 1, entry, result);
       steps.push(step);
 
       if (result.ok) {
-        bought.add(key);
-        const body = result.x402?.parsed_response_body;
-        evidence.push({ endpoint: key, data: body ?? result.x402?.response_body ?? null });
-        session = {
-          session_id: result.session_id ?? session.session_id,
-          max_amount_per_tx:
-            result.delegation?.payment_policy?.max_amount_per_tx ?? session.max_amount_per_tx,
-          max_total_amount:
-            result.delegation?.payment_policy?.max_total_amount ?? session.max_total_amount,
-          spent_total: result.usage?.spent_total ?? session.spent_total,
-          assets: result.delegation?.payment_policy?.assets ?? session.assets,
-        };
+        bought.add(entry.id);
+        evidence.push({
+          id: entry.id,
+          label: `${entry.service} ${entry.path}`,
+          data:
+            result.x402?.parsed_response_body ?? result.x402?.response_body ?? null,
+        });
+        // The cheapest endpoint that answers a missing fact is credited with it.
+        for (const fact of missing) {
+          if (!covered.has(fact)) {
+            covered.add(fact);
+            break;
+          }
+        }
+        session = mergeSession(session, result);
         continue;
       }
 
       if (isCapRefusal(result)) {
         refusals.push({
-          endpoint: key,
+          endpoint: `${entry.service} ${entry.path} ($${entry.price_usd})`,
           error_code: result.error_code ?? "unknown",
           message: result.error ?? result.hint ?? "the spending session refused this purchase",
         });
-        session = {
-          session_id: session.session_id,
-          max_amount_per_tx:
-            result.delegation?.payment_policy?.max_amount_per_tx ?? session.max_amount_per_tx,
-          max_total_amount:
-            result.delegation?.payment_policy?.max_total_amount ?? session.max_total_amount,
-          spent_total: result.usage?.spent_total ?? session.spent_total,
-          assets: result.delegation?.payment_policy?.assets ?? session.assets,
-        };
+        session = mergeSession(session, result);
         continue;
       }
 
-      // A failure that is not a cap refusal is a real error. Stop and report it.
       refusals.push({
-        endpoint: key,
+        endpoint: `${entry.service} ${entry.path}`,
         error_code: result.error_code ?? `exit_${result.exit_code}`,
         message: result.error ?? "unknown failure",
       });
@@ -176,7 +177,8 @@ export class Agent {
 
     const final = await this.serv.answer({
       task: this.options.task,
-      evidence,
+      requiredFacts: this.options.requiredFacts,
+      evidence: evidence.map((item) => ({ endpoint: item.label, data: item.data })),
       refusals,
       session: {
         max_amount_per_tx: session.max_amount_per_tx,
@@ -185,6 +187,7 @@ export class Agent {
       },
     });
 
+    const coveredFacts = this.options.requiredFacts.filter((fact) => covered.has(fact));
     return {
       steps,
       evidence,
@@ -192,22 +195,159 @@ export class Agent {
       answer: final.text,
       servCalls: this.serv.calls,
       session,
+      coveredFacts,
+      missingFacts: this.options.requiredFacts.filter((fact) => !covered.has(fact)),
+    };
+  }
+
+  /** Finds the menu entry the model meant, tolerating a mangled id. */
+  private resolve(choice: string | null): MenuEntry | undefined {
+    if (!choice || !this.menu) return undefined;
+    const endpoints = this.menu.endpoints;
+    const exact = endpoints.find((entry) => entry.id === choice);
+    if (exact) return exact;
+    const lower = choice.toLowerCase();
+    const byPath = endpoints.find((entry) => entry.path.toLowerCase() === lower);
+    if (byPath) return byPath;
+    const bySuffix = endpoints.find((entry) =>
+      entry.path.toLowerCase().endsWith(lower.replace(/^\//, "")),
+    );
+    if (bySuffix) return bySuffix;
+    const byServicePath = endpoints.find(
+      (entry) =>
+        entry.path.toLowerCase().endsWith(lower) ||
+        `${entry.service} ${entry.path}`.toLowerCase() === lower,
+    );
+    return byServicePath;
+  }
+
+  private async decide(
+    missing: string[],
+    bought: Set<string>,
+    refusals: Array<{ endpoint: string; error_code: string; message: string }>,
+    evidence: Array<{ id: string; label: string; data: unknown }>,
+    session: {
+      max_amount_per_tx: string | null;
+      max_total_amount: string | null;
+      spent_total: string | null;
+    },
+  ): Promise<Decision> {
+    const model = process.env.SERV_MODEL ?? "gpt-5.4-mini";
+    const spent = Number(session.spent_total ?? 0);
+    const budget = Number(session.max_total_amount ?? this.options.budgetUsd);
+    const remaining = Math.max(0, budget - spent);
+    const body = {
+      model,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: JSON.stringify({
+            task: this.options.task,
+            facts_still_missing: missing,
+            budget_remaining_usd: `$${remaining.toFixed(6)}`,
+            budget_total_usd: `$${budget.toFixed(6)}`,
+            already_bought: [...bought],
+            refusals,
+            evidence_held: evidence.map((item) => ({
+              endpoint: item.label,
+              data: item.data,
+            })),
+            menu: (this.menu?.endpoints ?? []).map((entry) => ({
+              id: entry.id,
+              service: entry.service,
+              method: entry.method,
+              path: entry.path,
+              price_usd: `$${entry.price_usd}`,
+              summary: entry.summary,
+            })),
+          }),
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "purchase_decision",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              action: { type: "string", enum: ["buy", "answer"] },
+              id: { type: ["string", "null"] },
+              reason: { type: "string" },
+            },
+            required: ["action", "id", "reason"],
+            additionalProperties: false,
+          },
+        },
+      },
+    };
+    const response = await fetch(
+      `${process.env.SERV_BASE_URL ?? "https://inference-api.openserv.ai/v1"}/chat/completions`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${process.env.SERV_API_KEY ?? ""}`,
+        },
+        body: JSON.stringify(body),
+      },
+    );
+    if (!response.ok) {
+      throw new Error(`SERV HTTP ${response.status}: ${(await response.text()).slice(0, 300)}`);
+    }
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: Record<string, number>;
+    };
+    this.serv.calls.push({
+      at: new Date().toISOString(),
+      model,
+      purpose: `decision ${this.serv.calls.length + 1}`,
+      latency_ms: 0,
+      usage: payload.usage ?? null,
+      serv_features: null,
+      error: null,
+    });
+    const content = payload.choices?.[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(content) as Partial<Decision>;
+    if (parsed.action !== "buy" && parsed.action !== "answer") {
+      throw new Error(`SERV returned an unknown action: ${String(parsed.action)}`);
+    }
+    return {
+      action: parsed.action,
+      id: typeof parsed.id === "string" ? parsed.id : null,
+      reason: typeof parsed.reason === "string" ? parsed.reason : "",
     };
   }
 }
 
-function toStep(
-  n: number,
-  url: string,
-  entry: CatalogEntry,
+function mergeSession(
+  session: {
+    session_id: string | null;
+    max_amount_per_tx: string | null;
+    max_total_amount: string | null;
+    spent_total: string | null;
+  },
   result: KpassResult,
-): ReceiptStep {
-  const endpoint = url.replace(/^https?:\/\/[^/]+/, "");
+) {
+  return {
+    session_id: result.ok ? result.session_id ?? session.session_id : session.session_id,
+    max_amount_per_tx:
+      result.delegation?.payment_policy?.max_amount_per_tx ?? session.max_amount_per_tx,
+    max_total_amount:
+      result.delegation?.payment_policy?.max_total_amount ?? session.max_total_amount,
+    spent_total: result.usage?.spent_total ?? session.spent_total,
+  };
+}
+
+function toStep(n: number, entry: MenuEntry, result: KpassResult): ReceiptStep {
+  const label = `${entry.service} ${entry.path}`;
   if (result.ok) {
     return {
       n,
-      url,
-      endpoint,
+      url: entry.url,
+      endpoint: label,
       price_usd: entry.price_usd,
       outcome: "paid",
       http_status: result.x402?.status_code ?? null,
@@ -221,8 +361,8 @@ function toStep(
   }
   return {
     n,
-    url,
-    endpoint,
+    url: entry.url,
+    endpoint: label,
     price_usd: entry.price_usd,
     outcome: "refused",
     http_status: null,
@@ -236,7 +376,9 @@ function toStep(
 }
 
 /** The settlement reference, wherever the CLI put it. */
-function findTransactionHash(result: Extract<KpassResult, { ok: true }>): string | null {
+function findTransactionHash(
+  result: Extract<KpassResult, { ok: true }>,
+): string | null {
   const raw = result.raw as Record<string, unknown> | null;
   const payment = raw?.payment as Record<string, unknown> | undefined;
   const response = payment?.payment_response as Record<string, unknown> | undefined;
