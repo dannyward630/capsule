@@ -13,7 +13,8 @@
     "demo": "node --env-file=.env --import tsx scripts/run-demo.ts",
     "claims": "node --env-file=.env --import tsx scripts/generate-claims.ts",
     "test": "node --import tsx --test test/*.test.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "await-approval": "npx tsx scripts/await-approval.ts"
   },
   "dependencies": {
     "@x402/core": "^2.25.0",

@@ -75,7 +75,24 @@ export class ServClient {
           }),
         },
       ],
-      response_format: { type: "json_object" },
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "purchase_decision",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              action: { type: "string", enum: ["buy", "stop", "answer"] },
+              endpoint: { type: ["string", "null"] },
+              topic: { type: ["string", "null"] },
+              reason: { type: "string" },
+            },
+            required: ["action", "endpoint", "topic", "reason"],
+            additionalProperties: false,
+          },
+        },
+      },
     };
     const record: ServCallRecord = {
       at: new Date().toISOString(),
