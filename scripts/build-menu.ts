@@ -61,14 +61,30 @@ async function readCatalog(
 }
 
 /** Applies the catalog's default query parameters so the URL is complete. */
+/**
+ * The catalog's default parameters are the catalog's, not ours: a trends
+ * endpoint defaults to bitcoin. The menu is built for one subject, so the
+ * subject-bearing parameters are pointed at it.
+ */
+const SUBJECT_PARAMS = new Set(["keyword", "symbol", "coin", "coins", "topic", "asset"]);
+const SUBJECT = process.env.MENU_SUBJECT ?? "ETH";
+
 function withDefaults(endpoint: Endpoint): string {
   const base = endpoint.endpoint_url ?? "";
   const params = (endpoint.query_params ?? []).filter(
-    (param) => param.default !== undefined || param.example !== undefined,
+    (param) =>
+      SUBJECT_PARAMS.has(param.name) ||
+      param.default !== undefined ||
+      param.example !== undefined,
   );
   if (params.length === 0) return base;
   const search = params
-    .map((param) => `${encodeURIComponent(param.name)}=${encodeURIComponent(String(param.default ?? param.example))}`)
+    .map((param) => {
+      const value = SUBJECT_PARAMS.has(param.name)
+        ? SUBJECT
+        : String(param.default ?? param.example);
+      return `${encodeURIComponent(param.name)}=${encodeURIComponent(value)}`;
+    })
     .join("&");
   return `${base}?${search}`;
 }

@@ -45,7 +45,7 @@ for (let attempt = 0; attempt < 40; attempt += 1) {
         "--max-amount-per-tx",
         "0.002",
         "--max-total-amount",
-        "0.003",
+        "0.0025",
         "--ttl",
         "168h",
         "--assets",

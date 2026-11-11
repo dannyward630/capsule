@@ -169,6 +169,72 @@ export class Kpass {
       spent_total: session.usage?.spent_total ?? null,
     };
   }
+
+  /**
+   * The payments this account has made, read from the CLI's own activity log.
+   *
+   * The settlement reference is not in the execute reply; it is here, next to
+   * the merchant URL it belongs to.
+   */
+  async payments(): Promise<
+    Array<{
+      url: string;
+      txHash: string;
+      chain: string;
+      asset: string;
+      amountRaw: string;
+      routingKind: string | null;
+      routingOverheadMicros: number | null;
+    }>
+  > {
+    const { stdout } = await this.run(["activity", "--limit", "30", "--output", "json"]);
+    const parsed = parseJson(stdout) as {
+      events?: Array<{
+        details?: {
+          transaction?: {
+            tx_hash?: string;
+            chain_name?: string;
+            asset_symbol?: string;
+            amount_raw?: string;
+            x402?: { request_url?: string };
+          };
+          routing?: {
+            merchant_url?: string;
+            merchant_tx_hash?: string;
+            legs?: Array<{ kind?: string }>;
+            routing_overhead_usd_micros?: number;
+          };
+        };
+      }>;
+    };
+    const payments: Array<{
+      url: string;
+      txHash: string;
+      chain: string;
+      asset: string;
+      amountRaw: string;
+      routingKind: string | null;
+      routingOverheadMicros: number | null;
+    }> = [];
+    for (const event of parsed?.events ?? []) {
+      const details = event.details ?? {};
+      const transaction = details.transaction ?? {};
+      const routing = details.routing ?? {};
+      const url = routing.merchant_url ?? transaction.x402?.request_url ?? "";
+      const txHash = transaction.tx_hash ?? routing.merchant_tx_hash ?? "";
+      if (!url || !txHash) continue;
+      payments.push({
+        url,
+        txHash,
+        chain: transaction.chain_name ?? "",
+        asset: transaction.asset_symbol ?? "",
+        amountRaw: transaction.amount_raw ?? "",
+        routingKind: routing.legs?.[0]?.kind ?? null,
+        routingOverheadMicros: routing.routing_overhead_usd_micros ?? null,
+      });
+    }
+    return payments;
+  }
 }
 
 function parseJson(text: string): unknown {

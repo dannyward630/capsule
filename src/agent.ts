@@ -175,6 +175,15 @@ export class Agent {
       break;
     }
 
+    // The settlement reference lives in the CLI's activity log, not in the
+    // execute reply. Match it back to each step by the URL that was paid.
+    const payments = await this.kpass.payments();
+    for (const step of steps) {
+      if (step.outcome !== "paid" || step.tx_hash) continue;
+      const payment = payments.find((entry) => entry.url === step.url);
+      if (payment) step.tx_hash = payment.txHash;
+    }
+
     const final = await this.serv.answer({
       task: this.options.task,
       requiredFacts: this.options.requiredFacts,
