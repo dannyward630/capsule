@@ -2,10 +2,10 @@ node_modules/
 .vercel/
 .env
 .env.local
+.env.*
+!.env.example
 .kite-passport/
+.secrets/
 *.log
 .DS_Store
 notes/
-.secrets/
-.vercel
-.env*
