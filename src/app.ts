@@ -70,9 +70,12 @@ export function paidRoutes(config: AppConfig): RoutesConfig {
   return routes;
 }
 
-export function createApp(config: AppConfig = readConfig()) {
-  const app = express();
+export function createApp(config: AppConfig = readConfig()) {  const app = express();
   app.disable("x-powered-by");
+  // Vercel terminates TLS in front of the function and forwards the original
+  // scheme in x-forwarded-proto. Without this the x402 challenge would
+  // advertise an http:// resource URL, and a payment to it would be refused.
+  app.set("trust proxy", true);
   app.use(express.json({ limit: "256kb" }));
 
   const facilitator = new HTTPFacilitatorClient({ url: config.facilitatorUrl });
@@ -147,11 +150,22 @@ export function createApp(config: AppConfig = readConfig()) {
     });
   });
 
+  // The judge page is public/index.html. On Vercel the CDN serves public/ and
+  // express.static is ignored; locally this mount does the same job.
   app.get("/proof", (_request, response) => {
-    response.sendFile("index.html", { root: new URL("../public", import.meta.url).pathname });
+    response.redirect("/");
   });
 
   app.use(express.static(new URL("../public", import.meta.url).pathname));
 
   return app;
 }
+
+/**
+ * The Express app as Vercel finds it: a default export from src/app.ts, or a
+ * port listener. Vercel routes every request to this one function.
+ */
+const app = createApp();
+
+export default app;
+export const config = { maxDuration: 60 };

@@ -1,7 +1,6 @@
-import { createApp, readConfig } from "./server.js";
+import app, { readConfig } from "./app.js";
 
 const config = readConfig();
-const app = createApp(config);
 const port = Number(process.env.PORT ?? 8080);
 
 app.listen(port, () => {

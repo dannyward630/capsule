@@ -12,30 +12,44 @@ not create accounts, request OTPs, or move money without your say-so.
 ## A. OpenServ (blocks the build — I cannot call SERV without it)
 
 1. Sign up: <https://console.openserv.ai/signup>
-2. Create an API key in the console and set it in your shell:
+2. Create an API key in the console. **Do not paste it into chat.** Write it to the
+   repository's own env file, which is gitignored:
 
    ```bash
-   export SERV_API_KEY='...'
+   cd /home/unify/serv
+   printf 'SERV_API_KEY=...\n' >> .env
+   chmod 600 .env
    ```
 
-   Do **not** paste the key into chat or commit it. Put it in `~/.serv/.env` (chmod 600)
-   or your shell profile, and I will read it from the environment.
+   The npm scripts load `.env` natively (`node --env-file-if-exists=.env`), so the key
+   is never in a shell profile, never in chat, and never committed. I read it from the
+   environment at run time and never print it.
 3. **Enable data collection**: <https://console.openserv.ai/settings/organization>
    — this is an eligibility gate in the Edition 01 FAQ and the Edition 02 form asks the
    same question. Do this now, it is the thing most likely to disqualify us late.
-4. Check your credit balance. Pre-registered participants get **$5** in SERV credits.
-   Tell me the number — it decides how many reasoning calls the agent may make.
+4. Check your credit balance. **The account currently holds $1 of SERV credits**, not
+   the $5 the FAQ mentions. That decides the reasoning budget, and the agent already
+   makes exactly two SERV calls per run (one to decide, one to answer). At $1 that is
+   a large number of full runs, so the budget is not the binding constraint — the
+   deadline is.
 
 ## B. Kite Passport (blocks the money path)
 
 ### B1. Sign in
 
+`kpass signup init --email akoladefatoki108@gmail.com` has already been run. It only
+*started* the flow: `~/.kite-passport/config.json` holds the email but no JWT, and
+`kpass status` still reports `logged_in: false`. Two steps remain — open the emailed
+link, then finish the exchange:
+
 ```bash
-kpass signup init --email you@example.com --output json
-# open the emailed link, get the signup id and code
 kpass signup poll --signup-id <id> --wait --output json
 kpass signup exchange --signup-id <id> --code <code> --output json
+kpass status --output json   # expect logged_in: true
 ```
+
+The signup id and the code come from the link Kite emailed you. If the link has
+expired, `kpass login init --email akoladefatoki108@gmail.com` sends a fresh one.
 
 If you already have an account, `kpass login init --email you@example.com` then
 `kpass login verify --login-id <id> --code <code>`.
@@ -61,8 +75,9 @@ paths:
   Kite USDC. If your USDC is on Base or Arc, send it to that chain's listed address.
   You can also use <https://bridge.gokite.ai>.
 
-**Then send me:** `kpass wallet balance --output json` — confirm a non-zero USDC
-balance. A $5 balance is plenty for the demo; the whole run should cost well under $1.
+**Then send me:** `kpass wallet balance --output json` — confirm a non-zero USDC.e
+balance **on the kite chain**. The wallet is currently `0.000000` on every chain.
+The demo needs the $0.30 for the session; $1 is comfortable, $5 is generous.
 
 ## C. Agent identity (I can run this once you are signed in)
 
@@ -89,8 +104,8 @@ Once the agent is bound and the wallet is funded:
 ```bash
 kpass session create --separate \
   --task-summary "Capsule demo run: market-data purchases under a capped session" \
-  --max-amount-per-tx 0.02 \
-  --max-total-amount 0.05 \
+  --max-amount-per-tx 0.25 \
+  --max-total-amount 0.30 \
   --ttl 24h --assets USDC --output json
 ```
 
@@ -102,9 +117,15 @@ kpass session status --request-id <id> --wait --output json
 kpass session use --session-id <id>
 ```
 
-The session is the artifact the whole entry rests on: `max-total-amount 0.05` with a
-`0.02` per-transaction cap, so our agent **cannot** buy a $0.05 tier. That refusal is
-the demo.
+**The limits must match the catalogue prices.** The four paid tiers are $0.05
+(`/v1/snapshot`), $0.20 (`/v1/history`), $0.50 (`/v1/deep`) and $1.20 (`/v1/briefing`).
+
+| Session | What happens |
+| --- | --- |
+| per-tx $0.02, total $0.05 | **Every tier is refused. Zero payments. The demo is empty.** |
+| per-tx $0.25, total $0.30 | Buys $0.05, buys $0.20, then attempts $0.50 and **the session refuses it** — over the per-transaction cap and over the $0.05 left. That refusal is the demo. |
+
+Use the second. It costs **$0.30 of USDC.e**, and the run spends $0.25 of it.
 
 ## E. The X post
 
@@ -118,7 +139,7 @@ a required field.
 
 | Thing | Where | Who |
 | --- | --- | --- |
-| `SERV_API_KEY` | `~/.serv/.env`, chmod 600 — never in the repo | you |
+| `SERV_API_KEY` | `/home/unify/serv/.env`, chmod 600, gitignored — never in chat | you |
 | Kite user JWT | `~/.kpass/config.json` (the CLI writes it) | you |
 | Agent runtime key | `<repo>/.kite-passport/runtime.key`, mode 0600 — **gitignored** | the CLI |
 | Agent + session state | `<repo>/.kite-passport/agent.json` — **gitignored** | the CLI |

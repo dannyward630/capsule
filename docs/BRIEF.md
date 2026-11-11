@@ -109,8 +109,11 @@ a promise; a budget signed with a passkey is a constraint.
 3. SERV Reasoning plans the purchase sequence and decides when to stop.
 4. A Kite Passport session with `max-amount-per-tx` and `max-total-amount`, approved by
    the user's passkey.
-5. One run: buy tier 1 → buy tier 2 → attempt tier 3 → **refused by the session cap** →
-   the agent degrades and states what it could not check.
+5. One run: buy tier 1 ($0.05) → buy tier 2 ($0.20) → attempt tier 3 ($0.50) →
+   **refused by the session cap** → the agent degrades and states what it could not
+   check. The session must therefore be **per-tx $0.25, total $0.30**; the limits
+   first written down ($0.02 / $0.05) would have refused every tier and produced an
+   empty demo. Fixed 2026-11-11.
 6. A receipt per payment: service, amount, session id, transaction hash.
 7. A read-only proof page plus a machine-readable proof endpoint a judge can fetch
    unauthenticated.
@@ -141,7 +144,7 @@ EXHIBIT A both ship "no dependencies, Node 20+, deploys to Vercel as-is").
 | Time | 4d 10h as of 2026-11-11 13:48 UTC | yes |
 | Cash | $0 — the user already holds USDC and bridges it themselves | user-confirmed |
 | Team | Solo; the user holds the OpenServ and Kite accounts | user-confirmed |
-| SERV credits | $5 for pre-registered participants | event FAQ — unverified in the console |
+| SERV credits | **$1** in the account | console — user-confirmed 2026-11-11 |
 | Data collection | must be enabled at console.openserv.ai/settings/organization | Edition 01 FAQ; Edition 02 form asks it — treat as a gate |
 
 ## Risks, worst first
@@ -153,8 +156,10 @@ EXHIBIT A both ship "no dependencies, Node 20+, deploys to Vercel as-is").
    Cut order: video → extra tiers → extra UI. Never cut the refusal path, the receipts,
    or the proof endpoint.
 3. **No user contact**, so "user readiness" rests on the 60-second judge script alone.
-4. **SERV credit exhaustion.** $5 is a few dozen calls. The agent must cache catalog
-   reads and reuse one reasoning call per purchase decision, not per candidate.
+4. **SERV credit exhaustion.** The account holds **$1**. The agent makes two SERV calls
+   per run (one to decide, one to answer), so the budget is not binding at this
+   volume — but the catalogue read must stay cached and the call count per decision
+   must not grow.
 
 ## What is deliberately not decided yet
 
