@@ -1,0 +1,7 @@
+{
+  "service": "Scout",
+  "role": "payment receiver",
+  "address": "0xCfca130E445A5178d621aAd38E51D049855911c2",
+  "network": "kite",
+  "note": "The private key lives in .secrets/seller.key and is not in this repository. The money this address receives is the service's revenue."
+}

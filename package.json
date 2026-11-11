@@ -1,0 +1,29 @@
+{
+  "name": "capsule",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A spend-control and payment-attestation layer for AI agents: SERV Reasoning decides, a Kite Passport session enforces the money.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "demo": "tsx scripts/run-demo.ts",
+    "claims": "tsx scripts/generate-claims.ts",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@x402/core": "^2.25.0",
+    "@x402/evm": "^2.25.0",
+    "@x402/express": "^2.25.0",
+    "express": "^5.1.0",
+    "viem": "^2.48.11"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.3.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}

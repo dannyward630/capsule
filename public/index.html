@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Capsule — an agent that spends under a limit you signed</title>
+    <meta
+      name="description"
+      content="SERV Reasoning decides what to buy. A Kite Passport session decides whether it is allowed. Every payment carries proof it never went over."
+    />
+    <style>
+      :root {
+        --ink: #e8e6e1;
+        --ink-dim: #9b968d;
+        --ink-faint: #6b6760;
+        --bg: #0e0e0f;
+        --panel: #17171a;
+        --line: #2a2a2e;
+        --paid: #7fd1a0;
+        --refused: #e5a06a;
+        --accent: #c8b48a;
+        --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --ink: #1b1a18;
+          --ink-dim: #5d5950;
+          --ink-faint: #8b857a;
+          --bg: #fbfaf7;
+          --panel: #ffffff;
+          --line: #e3ded3;
+          --paid: #1f7a4d;
+          --refused: #a4591c;
+          --accent: #8a6f3c;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 16px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Inter, system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      main { max-width: 880px; margin: 0 auto; padding: 56px 24px 96px; }
+      h1 {
+        font-size: clamp(1.9rem, 4.5vw, 2.9rem);
+        line-height: 1.15;
+        letter-spacing: -0.022em;
+        margin: 0 0 20px;
+        font-weight: 600;
+      }
+      h1 em { font-style: normal; color: var(--accent); }
+      h2 {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+        color: var(--ink-faint);
+        font-weight: 600;
+        margin: 56px 0 16px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--line);
+      }
+      p { margin: 0 0 16px; }
+      .lede { font-size: 1.08rem; color: var(--ink-dim); max-width: 64ch; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        margin: 28px 0;
+      }
+      .cell { background: var(--panel); padding: 16px 18px; }
+      .cell dt {
+        font: 600 0.68rem/1 ui-monospace, monospace;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ink-faint);
+        margin: 0 0 8px;
+      }
+      .cell dd {
+        margin: 0;
+        font: 500 1.35rem/1.25 ui-monospace, monospace;
+        font-variant-numeric: tabular-nums;
+      }
+      .cell dd small { font-size: 0.72rem; color: var(--ink-faint); font-weight: 400; }
+      ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: s; }
+      ol.steps li {
+        counter-increment: s;
+        display: grid;
+        grid-template-columns: 34px 1fr auto;
+        gap: 14px;
+        align-items: baseline;
+        padding: 14px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      ol.steps li::before {
+        content: counter(s);
+        font: 500 0.78rem/1 ui-monospace, monospace;
+        color: var(--ink-faint);
+      }
+      .step-endpoint { font: 500 0.95rem/1.4 ui-monospace, monospace; }
+      .step-note { color: var(--ink-dim); font-size: 0.88rem; margin-top: 3px; }
+      .tag {
+        font: 600 0.68rem/1 ui-monospace, monospace;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 5px 9px;
+        border: 1px solid currentColor;
+        white-space: nowrap;
+      }
+      .tag.paid { color: var(--paid); }
+      .tag.refused { color: var(--refused); }
+      a { color: var(--accent); text-underline-offset: 3px; }
+      code {
+        font: 0.88em/1.5 ui-monospace, monospace;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        padding: 1px 5px;
+      }
+      .note { color: var(--ink-dim); font-size: 0.92rem; }
+      .empty {
+        border: 1px dashed var(--line);
+        padding: 28px;
+        color: var(--ink-dim);
+        background: var(--panel);
+      }
+      ol.judge { padding-left: 20px; margin: 0 0 16px; }
+      ol.judge li { margin-bottom: 10px; }
+      footer {
+        margin-top: 64px;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+        color: var(--ink-faint);
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>An agent that spends your money under a limit <em>you signed</em> — and every payment carries proof it never went over.</h1>
+      <p class="lede">
+        SERV Reasoning decides <em>what</em> to buy and <em>when to stop</em>. A Kite Passport
+        session, approved with a passkey and held outside this program, decides whether the
+        purchase is allowed. Nothing in this repository can raise that limit.
+      </p>
+
+      <h2>The numbers</h2>
+      <dl class="grid" id="totals">
+        <div class="cell"><dt>Budget signed</dt><dd id="budget">—</dd></div>
+        <div class="cell"><dt>Spent</dt><dd id="spent">—</dd></div>
+        <div class="cell"><dt>Payments settled</dt><dd id="paid">—</dd></div>
+        <div class="cell"><dt>Purchases refused</dt><dd id="refused">—</dd></div>
+      </dl>
+
+      <h2>What the agent tried to buy</h2>
+      <div id="steps"><div class="empty">Loading the recorded run…</div></div>
+
+      <h2>Judge it in 60 seconds</h2>
+      <ol class="judge">
+        <li>The run above shows a paid purchase, then a purchase the session refused, then another it refused for a different reason.</li>
+        <li>
+          Open <a href="/proof.json">/proof.json</a>. Every payment there is re-read from the
+          Kite chain at request time and compared against the receipt, so the page reports what
+          the chain says, not what this repository claims.
+        </li>
+        <li>
+          Each paid step carries a transaction hash. Open it on
+          <a href="https://kitescan.ai/" rel="noreferrer">KiteScan</a> and you will see the USDC
+          transfer to the service's address.
+        </li>
+      </ol>
+      <p class="note">
+        The refusal is the point. An agent that limits itself is keeping a promise. An agent
+        whose limit is a signed session on someone else's chain is obeying something it cannot
+        edit.
+      </p>
+
+      <h2>Where the parts live</h2>
+      <dl class="grid">
+        <div class="cell"><dt>Reasoning</dt><dd style="font-size: 1rem">SERV Reasoning</dd></div>
+        <div class="cell"><dt>Money</dt><dd style="font-size: 1rem">Kite Passport</dd></div>
+        <div class="cell"><dt>Chain</dt><dd style="font-size: 1rem">Kite mainnet</dd></div>
+        <div class="cell"><dt>Protocol</dt><dd style="font-size: 1rem">x402 v2, exact</dd></div>
+      </dl>
+
+      <footer>
+        Built for the SERV Hackathon, Edition 02 — Kite track. Source and receipts are in the
+        repository; every figure on this page is read from
+        <a href="/proof.json">/proof.json</a>, which verifies against the chain.
+      </footer>
+    </main>
+
+    <script>
+      const money = (value) => (value === null || value === undefined ? "—" : "$" + value);
+      const short = (hash) => (hash ? hash.slice(0, 10) + "…" : "");
+
+      fetch("/proof.json")
+        .then((response) => response.json())
+        .then((proof) => {
+          if (proof.status !== "verified") {
+            document.getElementById("steps").innerHTML =
+              '<div class="empty">No run has been recorded yet.</div>';
+            return;
+          }
+          document.getElementById("budget").innerHTML = money(proof.totals.session_budget_usd) +
+            ' <small>session total</small>';
+          document.getElementById("spent").innerHTML = money(proof.totals.spent_usd) +
+            ' <small>of budget</small>';
+          document.getElementById("paid").innerHTML = proof.totals.payments +
+            ' <small>settled on chain</small>';
+          document.getElementById("refused").innerHTML = proof.totals.refusals +
+            ' <small>by the session</small>';
+
+          const rows = proof.steps
+            .map((step) => {
+              const paid = step.outcome === "paid";
+              const note = paid
+                ? "paid" + (step.tx_hash ? " · tx " + short(step.tx_hash) : "")
+                : (step.error_code || "refused") +
+                  (step.error_message ? " · " + step.error_message : "");
+              return (
+                '<li><div><div class="step-endpoint">' + step.endpoint + '</div>' +
+                '<div class="step-note">' + note + "</div></div>" +
+                '<span class="tag ' + (paid ? "paid" : "refused") + '">' +
+                (paid ? "paid" : "refused") + " · $" + step.price_usd + "</span></li>"
+              );
+            })
+            .join("");
+          document.getElementById("steps").innerHTML = '<ol class="steps">' + rows + "</ol>";
+        })
+        .catch(() => {
+          document.getElementById("steps").innerHTML =
+            '<div class="empty">The proof endpoint did not answer.</div>';
+        });
+    </script>
+  </body>
+</html>
