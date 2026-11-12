@@ -856,10 +856,19 @@
               ? `<div class="hashline">
                   <b>Identity</b> the head is signed by the key Kite publishes for this DID<br />
                   <b>did</b> ${escape(proof.attestation.did)}<br />
-                  <b>address</b> ${escape(proof.attestation.address)}<br />
+                  <b>signing address</b> ${escape(proof.attestation.address)}<br />
                   <b>signature</b> ${escape(proof.attestation.signature.slice(0, 26))}…
                   <span style="color:var(--ink-3)">— check it yourself:</span>
-                  <code>ksearch agent keys ${escape(proof.attestation.did)} --agent-base-url https://passport.prod.gokite.ai</code>
+                  <code>curl -s https://passport.prod.gokite.ai/v1/agents/${escape(proof.attestation.did)}/signingKeys</code>
+                </div>`
+              : ""
+          }
+          ${
+            proof.payer_address
+              ? `<div class="hashline">
+                  <b>Money</b> every transfer above was paid by this wallet<br />
+                  <b>paying wallet</b> ${escape(proof.payer_address)}
+                  <span style="color:var(--ink-3)">— the Passport's settlement wallet for this session</span>
                 </div>`
               : ""
           }

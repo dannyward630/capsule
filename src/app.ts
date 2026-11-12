@@ -148,6 +148,7 @@ export function createApp(config: AppConfig = readConfig()) {  const app = expre
       claim: receipts.claim,
       session: receipts.session,
       agent: receipts.agent,
+      payer_address: receipts.payer_address,
       chain: receipts.chain,
       seller: receipts.seller,
       log: receipts.log,

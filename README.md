@@ -77,6 +77,7 @@ times over, by three parties:
 | **The refusals** | The Kite Passport backend, not this code | `session_rule_exceeded` and `session_total_exceeded` are Kite's own error codes |
 | **The payments** | The chain | Two USDC transfers on Base, re-read from the chain at request time by `/proof.json` |
 | **The record itself** | The agent's identity | The log head is signed with the secp256k1 key the Passport binds to the agent's DID; the key is published by Kite and the signature recovers to the address Kite publishes |
+| **The payer** | The session's wallet | Every transfer in the record is checked on chain to have come from the Passport wallet that funded the session, not from some other address |
 
 `npm run verify` runs the whole check against the live deployment and exits zero only
 if all three hold.
@@ -171,6 +172,7 @@ is weakest on exactly this criterion — and so are we.
 | **Real, signed** | The decision log's head, signed with the key Kite publishes for the agent's DID |
 | **Derived by us** | The "what the limit cost" figures — they are the catalog's own prices for the endpoints the agent was refused, totalled |
 | **Self-asserted** | **The refusals are not chain-verified.** They exist in the signed log, and the log is a local file the owner could rewrite and re-sign. There is no on-chain record of a refusal today |
+| **Not public** | The link between the paying wallet and the agent's DID. Kite records it in the session and agent-registration records, but those are not readable by a third party, so we cannot show it to you. We publish both addresses and assert each separately |
 | **Mocked** | Scout, the service in this repository, returns a seeded series for its trend endpoints. It is not what the recorded run bought, and it received no money |
 
 ## Honest limitations
