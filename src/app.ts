@@ -40,11 +40,20 @@ export function readConfig(): AppConfig {
   const payTo = env("PAY_TO");
   if (!payTo) {
     throw new Error(
-      "PAY_TO is required: the Kite chain address that receives the payments",
+      [
+        "PAY_TO is not set, so the merchant has nowhere to send the payments.",
+        "",
+        "Set it to the address that should receive them:",
+        '  cp .env.example .env && edit PAY_TO=0xYourAddress',
+        "",
+        "The address used by the recorded run is in docs/seller.json.",
+      ].join("\n"),
     );
   }
   if (!/^0x[a-fA-F0-9]{40}$/.test(payTo)) {
-    throw new Error(`PAY_TO is not an EVM address: ${payTo}`);
+    throw new Error(
+      `PAY_TO is not an EVM address: ${payTo}. It must be 0x followed by 40 hex characters.`,
+    );
   }
   return { chain, payTo, facilitatorUrl: env("FACILITATOR_URL", FACILITATOR_URL) };
 }
@@ -127,6 +136,7 @@ export function createApp(config: AppConfig = readConfig()) {  const app = expre
             step,
             chain,
             dollarsToBaseUnits(step.price_usd, chain.assetDecimals),
+            receipts.payer_address,
           )),
         })),
     );
@@ -141,6 +151,7 @@ export function createApp(config: AppConfig = readConfig()) {  const app = expre
       chain: receipts.chain,
       seller: receipts.seller,
       log: receipts.log,
+      counterfactual: receipts.counterfactual,
       attestation: receipts.attestation,
       published_key: receipts.published_key,
       substitutions: receipts.substitutions,

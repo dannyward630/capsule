@@ -13,6 +13,8 @@ import { DecisionLog, HASH_ALGORITHM, substitutions, split } from "../src/log.js
 import { REPO_ROOT, type Receipts, type ReceiptStep } from "../src/proof.js";
 import { chainByName } from "../src/kite.js";
 import { fetchPublishedKeys, signLog } from "../src/attest.js";
+import { computeCounterfactual } from "../src/counterfactual.js";
+import { loadMenu } from "../src/menu.js";
 
 async function main() {
   const log = new DecisionLog({ path: path.join(REPO_ROOT, "docs", "decision-log.jsonl") });
@@ -36,6 +38,9 @@ async function main() {
     await readFile(path.join(REPO_ROOT, "docs", "seller.json"), "utf8"),
   ) as { address: string };
 
+  // The running total, computed from the log's own prices. A refused purchase
+  // does not move it, which is the whole point of the column.
+  let running = 0;
   const steps: ReceiptStep[] = records.map((record, index) => {
     const decision = record.decision;
     if (decision.kind === "note") {
@@ -45,6 +50,7 @@ async function main() {
       decision.kind === "purchase"
         ? payments.find((entry) => entry.url === decision.url)
         : undefined;
+    if (decision.kind === "purchase") running += Number(decision.price_usd);
     return {
       n: index,
       url: decision.url,
@@ -56,7 +62,7 @@ async function main() {
       error_message: decision.kind === "refusal" ? decision.message : null,
       tx_hash: decision.kind === "purchase" ? (decision.tx_hash ?? payment?.txHash ?? null) : null,
       session_id: session?.session_id ?? null,
-      spent_total_after: null,
+      spent_total_after: running.toFixed(4),
       paid_at: decision.kind === "purchase" ? record.at : null,
     };
   });
@@ -86,9 +92,20 @@ async function main() {
     console.error(`warning: the attestation could not be signed: ${String(error)}`);
   }
 
+  // The task is part of the artifact; a rebuild must not blank it.
+  let existingTask = "";
+  try {
+    const previous = JSON.parse(
+      await readFile(path.join(REPO_ROOT, "docs", "receipts.json"), "utf8"),
+    ) as { task?: string };
+    existingTask = previous.task ?? "";
+  } catch {
+    existingTask = "";
+  }
+
   const receipts: Receipts = {
     generated_at: records[records.length - 1]!.at,
-    task: process.env.DEMO_TASK ?? "",
+    task: process.env.DEMO_TASK ?? existingTask,
     claim:
       "Every purchase your agent made, every one it was refused, and the price of each - refusals decided by your Passport, not by the agent.",
     session: {
@@ -98,6 +115,9 @@ async function main() {
       max_total_amount: session?.max_total_amount ?? null,
       assets: null,
     },
+    payer_address: await kpass.walletAddress(
+      process.env.SETTLEMENT_CHAIN === "kite" ? "kite" : "base",
+    ),
     agent: {
       agent_id:
         process.env.KPASS_AGENT_ID ?? "agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c",
@@ -120,6 +140,12 @@ async function main() {
       head: chainCheck.head,
       verified: chainCheck.ok,
     },
+    counterfactual: computeCounterfactual({
+      records,
+      facts: (process.env.DEMO_FACTS ?? "").split(";").filter(Boolean),
+      menu: await loadMenu(),
+      budgetUsd: Number(session?.max_total_amount ?? 0),
+    }),
     substitutions: substitutions(records),
     steps,
     totals: {

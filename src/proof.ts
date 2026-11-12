@@ -46,6 +46,8 @@ export interface Receipts {
     assets: string[] | null;
   };
   agent: { agent_id: string | null; address: string | null };
+  /** The Passport wallet that paid. The on-chain sender is checked against it. */
+  payer_address: string | null;
   chain: {
     network: string;
     chain_id: number;
@@ -81,6 +83,31 @@ export interface Receipts {
     address: string;
     active: boolean;
   } | null;
+  /** What the limit cost, priced from the attempts the agent actually made. */
+  counterfactual: {
+    facts: Array<{
+      fact: string;
+      covered: boolean;
+      blocked_attempt: {
+        fact: string | null;
+        wanted: string;
+        wanted_price_usd: string;
+        blocked_by: "budget" | "session cap";
+        error_code: string;
+      } | null;
+    }>;
+    attempts: Array<{
+      fact: string | null;
+      wanted: string;
+      wanted_price_usd: string;
+      blocked_by: "budget" | "session cap";
+      error_code: string;
+    }>;
+    cost_usd: number;
+    budget_multiplier: number | null;
+    budget_usd: number;
+    unattempted_facts: string[];
+  };
   /** For every refusal, what the agent bought instead. */
   substitutions: Array<{
     refusal_seq: number;
@@ -142,6 +169,7 @@ export interface ChainCheck {
   confirmations: number | null;
   merchant: string | null;
   recipient: string | null;
+  sender: string | null;
   transfers: Array<{ from: string; to: string; value_base_units: string }>;
   matches_receipt: boolean | null;
   note: string;
@@ -159,6 +187,7 @@ export async function verifyStep(
   step: ReceiptStep,
   chain: SettlementChain,
   expectedAmountBaseUnits: string | null,
+  expectedSender: string | null = null,
 ): Promise<ChainCheck> {
   const base: ChainCheck = {
     tx_hash: step.tx_hash ?? "",
@@ -167,6 +196,7 @@ export async function verifyStep(
     confirmations: null,
     merchant: null,
     recipient: null,
+    sender: null,
     transfers: [],
     matches_receipt: null,
     note: "",
@@ -184,7 +214,7 @@ export async function verifyStep(
     const receipt = await rpc<{
       blockNumber: string;
       status: string;
-      logs: Array<{ topics: string[]; data: string }>;
+      logs: Array<{ address?: string; topics: string[]; data: string }>;
     } | null>(chain.rpcUrl, "eth_getTransactionReceipt", [step.tx_hash]);
     if (!receipt) {
       base.note = "transaction hash not found on chain";
@@ -198,8 +228,11 @@ export async function verifyStep(
     base.confirmations = Math.max(0, head - blockNumber + 1);
     base.note = receipt.status === "0x1" ? "status success" : "status reverted";
 
+    // Only transfers of the asset this run settles in. A transaction can
+    // carry other tokens; a match on amount alone would not prove anything.
     for (const log of receipt.logs ?? []) {
       if (log.topics?.[0]?.toLowerCase() !== TRANSFER_TOPIC) continue;
+      if (log.address?.toLowerCase() !== chain.assetAddress.toLowerCase()) continue;
       const from = `0x${log.topics[1]?.slice(-40)}`;
       const to = `0x${log.topics[2]?.slice(-40)}`;
       const value = BigInt(log.data).toString();
@@ -210,12 +243,24 @@ export async function verifyStep(
       base.note += "; no USDC transfer in this transaction";
       return base;
     }
-    const matching = base.transfers.filter(
+    // The payer must be the wallet the session was funded from.
+    const fromWallet = base.transfers.filter(
+      (transfer) =>
+        expectedSender === null ||
+        transfer.from.toLowerCase() === expectedSender.toLowerCase(),
+    );
+    if (expectedSender && fromWallet.length === 0 && base.transfers.length > 0) {
+      base.matches_receipt = false;
+      base.note += `; no transfer was paid by the session's wallet ${expectedSender}`;
+      return base;
+    }
+    const matching = fromWallet.filter(
       (transfer) =>
         expectedAmountBaseUnits === null ||
         transfer.value_base_units === expectedAmountBaseUnits,
     );
-    base.recipient = matching[0]?.to ?? base.transfers[0]?.to ?? null;
+    base.recipient = matching[0]?.to ?? fromWallet[0]?.to ?? null;
+    base.sender = matching[0]?.from ?? fromWallet[0]?.from ?? null;
     if (expectedAmountBaseUnits === null) {
       base.matches_receipt = null;
       base.note += "; a USDC transfer was found, no expected amount recorded";

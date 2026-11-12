@@ -170,6 +170,25 @@ export class Kpass {
     };
   }
 
+  /** The Passport wallet's address on a chain. */
+  async walletAddress(chain = "base"): Promise<string | null> {
+    const { stdout } = await this.run([
+      "wallet",
+      "address",
+      "--chain",
+      chain,
+      "--output",
+      "json",
+    ]);
+    const parsed = parseJson(stdout) as {
+      wallets?: Array<{ chain?: string; address?: string }>;
+    };
+    const wallet = (parsed?.wallets ?? []).find(
+      (candidate) => candidate.chain === chain,
+    );
+    return wallet?.address ?? parsed?.wallets?.[0]?.address ?? null;
+  }
+
   /**
    * The payments this account has made, read from the CLI's own activity log.
    *

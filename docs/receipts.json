@@ -9,6 +9,7 @@
     "max_total_amount": "0.0025",
     "assets": null
   },
+  "payer_address": "0x1724508463D67b77882375931A46A351C0B69905",
   "agent": {
     "agent_id": "agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c",
     "address": "0x5512caEe289ef639CD3181487F93920C5F544868"
@@ -33,7 +34,7 @@
     "address": "0x5512caEe289ef639CD3181487F93920C5F544868",
     "algorithm": "EIP-191 secp256k1 (personal_sign)",
     "signature": "0x74e5c23572af270ec3b53a56a5143766e672882a8c1a8cb65e05ba7a2f8cdd2826160da61d70823432c1d8c87a26df387fce9101d3805f5e138824d10f5520921b",
-    "signed_at": "2026-11-12T07:40:17.846Z"
+    "signed_at": "2026-11-12T09:18:48.382Z"
   },
   "published_key": {
     "key_id": "did:kite:ind-akoladefatoki108:capsule-agent#jkt:7b8ca731257ec4b3",
@@ -47,6 +48,69 @@
     "records": 4,
     "head": "0x6ab76d14fe58ea60c1f5f9a0cf9a4319ad9a37ce7c888c464f74a8ea848e581e",
     "verified": true
+  },
+  "counterfactual": {
+    "facts": [
+      {
+        "fact": "current ETH price and 24h change",
+        "covered": true,
+        "blocked_attempt": null
+      },
+      {
+        "fact": "sentiment and recent headlines",
+        "covered": true,
+        "blocked_attempt": null
+      },
+      {
+        "fact": "search interest and trend over the last month",
+        "covered": false,
+        "blocked_attempt": {
+          "fact": "search interest and trend over the last month",
+          "wanted": "Google Trends (x402Atlas) /trend-over-time https://google-trends.use.x402atlas.com/trend-over-time",
+          "wanted_price_usd": "0.05",
+          "blocked_by": "session cap",
+          "error_code": "session_rule_exceeded"
+        }
+      },
+      {
+        "fact": "volatility and drawdown",
+        "covered": false,
+        "blocked_attempt": {
+          "fact": "volatility and drawdown",
+          "wanted": "Otto AI /funding-rates https://x402.ottoai.services/funding-rates",
+          "wanted_price_usd": "0.001",
+          "blocked_by": "budget",
+          "error_code": "session_total_exceeded"
+        }
+      },
+      {
+        "fact": "main risk factors",
+        "covered": false,
+        "blocked_attempt": null
+      }
+    ],
+    "attempts": [
+      {
+        "fact": "search interest and trend over the last month",
+        "wanted": "Google Trends (x402Atlas) /trend-over-time https://google-trends.use.x402atlas.com/trend-over-time",
+        "wanted_price_usd": "0.05",
+        "blocked_by": "session cap",
+        "error_code": "session_rule_exceeded"
+      },
+      {
+        "fact": "volatility and drawdown",
+        "wanted": "Otto AI /funding-rates https://x402.ottoai.services/funding-rates",
+        "wanted_price_usd": "0.001",
+        "blocked_by": "budget",
+        "error_code": "session_total_exceeded"
+      }
+    ],
+    "cost_usd": 0.051,
+    "budget_multiplier": 20.4,
+    "budget_usd": 0.0025,
+    "unattempted_facts": [
+      "main risk factors"
+    ]
   },
   "substitutions": [
     {
@@ -86,7 +150,7 @@
       "error_message": null,
       "tx_hash": "0xf222835b302b905f6d00c5e620cfc59a7b97c1f1d9672eb4c9cdd682e3ecde4e",
       "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
-      "spent_total_after": null,
+      "spent_total_after": "0.0010",
       "paid_at": "2026-11-12T05:50:23.053Z"
     },
     {
@@ -100,7 +164,7 @@
       "error_message": null,
       "tx_hash": "0x92031083779833938768c700c2a23a06d340ee08d7c5b124d65939f5f72c2920",
       "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
-      "spent_total_after": null,
+      "spent_total_after": "0.0020",
       "paid_at": "2026-11-12T05:50:43.982Z"
     },
     {
@@ -114,7 +178,7 @@
       "error_message": "payment amount exceeds max_amount_per_tx",
       "tx_hash": null,
       "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
-      "spent_total_after": null,
+      "spent_total_after": "0.0020",
       "paid_at": null
     },
     {
@@ -128,7 +192,7 @@
       "error_message": "payment amount exceeds max_total_amount",
       "tx_hash": null,
       "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
-      "spent_total_after": null,
+      "spent_total_after": "0.0020",
       "paid_at": null
     }
   ],

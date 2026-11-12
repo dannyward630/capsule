@@ -18,6 +18,8 @@ import {
   split,
 } from "../src/log.js";
 import { fetchPublishedKeys, signLog } from "../src/attest.js";
+import { computeCounterfactual } from "../src/counterfactual.js";
+import { loadMenu } from "../src/menu.js";
 
 const TASK =
   process.env.DEMO_TASK ??
@@ -98,6 +100,9 @@ async function main() {
       max_total_amount: run.session.max_total_amount,
       assets: null,
     },
+    payer_address: await kpass.walletAddress(
+      process.env.SETTLEMENT_CHAIN === "kite" ? "kite" : "base",
+    ),
     agent: {
       agent_id:
         process.env.KPASS_AGENT_ID ?? "agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c",
@@ -123,6 +128,12 @@ async function main() {
       head: chainCheck.head,
       verified: chainCheck.ok,
     },
+    counterfactual: computeCounterfactual({
+      records,
+      facts: REQUIRED_FACTS,
+      menu: await loadMenu(),
+      budgetUsd: Number(run.session.max_total_amount ?? 0),
+    }),
     substitutions: substitutions(records),
     steps: run.steps,
     totals: {

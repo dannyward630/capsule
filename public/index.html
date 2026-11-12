@@ -512,6 +512,7 @@
 
       <nav class="rail" aria-label="Sections">
         <a href="#record">The record</a>
+        <a href="#cost">What the limit cost</a>
         <a href="#substitutions">What it bought instead</a>
         <a href="#verification">Verification</a>
         <a href="#surfaces">Surfaces</a>
@@ -527,6 +528,13 @@
       <section id="substitutions" aria-labelledby="subs-h">
         <h2 id="subs-h">What it bought instead <span class="count" id="subs-count"></span></h2>
         <div id="subs-body">
+          <div class="state"><p>Loading the recorded run…</p></div>
+        </div>
+      </section>
+
+      <section id="cost" aria-labelledby="cost-h">
+        <h2 id="cost-h">What the limit cost</h2>
+        <div id="cost-body">
           <div class="state"><p>Loading the recorded run…</p></div>
         </div>
       </section>
@@ -759,6 +767,50 @@
           "</div>";
       }
 
+      function renderCost(proof) {
+        const c = proof.counterfactual;
+        if (!c) {
+          $("cost-body").innerHTML =
+            '<div class="state"><p>The recorded run carries no cost report.</p></div>';
+          return;
+        }
+        const rows = (c.facts || [])
+          .map((fact) => {
+            const state = fact.covered
+              ? '<span class="status verified"><span class="dot" aria-hidden="true"></span>covered</span>'
+              : fact.blocked_attempt
+                ? `<span class="status refused"><span class="dot" aria-hidden="true"></span>blocked</span> <span style="color:var(--ink-2)">by the ${escape(
+                    fact.blocked_attempt.blocked_by
+                  )} — ${escape(money(fact.blocked_attempt.wanted_price_usd))}</span>`
+                : '<span class="status neutral"><span class="dot" aria-hidden="true"></span>not attempted</span> <span style="color:var(--ink-2)">the budget was gone</span>';
+            return `<tr><td class="wrap">${escape(fact.fact)}</td><td>${state}</td></tr>`;
+          })
+          .join("");
+        const multiple = c.budget_multiplier;
+        $("cost-body").innerHTML = `<div class="verify">
+          <div class="verify-head">
+            <span class="headline" style="font-size:1.15rem">${escape(
+              money(c.cost_usd)
+            )} of evidence, refused</span>
+            <span class="spacer"></span>
+            <span style="color:var(--ink-3);font-size:0.83rem">against a ${escape(
+              money(c.budget_usd)
+            )} budget${
+              multiple ? ` — <strong style="color:var(--ink)">${escape(multiple)}×</strong> the whole budget` : ""
+            }</span>
+          </div>
+          <table class="checks">
+            <thead><tr><th>The answer needed</th><th>What the record says</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <p class="caveat">
+          The refusals were not free attempts. Each one names the endpoint the agent
+          wanted, the price it walked away from, and the limit that stopped it. The cost is
+          the sum of those prices, taken from the catalog.
+        </p>`;
+      }
+
       function renderVerification(proof) {
         const checks = proof.chain_checks || [];
         const ok = proof.all_payments_verified_on_chain === true;
@@ -768,9 +820,13 @@
           .map(
             (c) => `<tr>
               <td>${escape(c.endpoint || "")}</td>
-              <td><a href="${escape(proof.chain.explorer)}/tx/${escape(c.tx_hash)}" target="_blank" rel="noreferrer">${escape(
-                c.tx_hash.slice(0, 12)
-              )}…</a></td>
+              <td>${
+                c.tx_hash
+                  ? `<a href="${escape(proof.chain.explorer)}/tx/${escape(c.tx_hash)}" target="_blank" rel="noreferrer">${escape(
+                      c.tx_hash.slice(0, 12)
+                    )}…</a>`
+                  : '<span style="color:var(--ink-3)">no hash recorded</span>'
+              }</td>
               <td>${c.block_number ?? "—"}</td>
               <td>${c.confirmations ?? "—"}</td>
               <td class="wrap">${escape(c.recipient || "—")}</td>
@@ -829,6 +885,8 @@
           if (proof.status !== "verified") {
             $("record-body").innerHTML =
               '<div class="state"><h3>No run recorded yet</h3><p>The receipts file is written by <code>npm run demo</code>. Until then there is nothing to show — which is not the same as a run that spent nothing.</p></div>';
+            $("cost-body").innerHTML =
+              '<div class="state"><p>No run recorded yet.</p></div>';
             $("subs-body").innerHTML =
               '<div class="state"><p>No run recorded yet.</p></div>';
             $("verify-body").innerHTML =
@@ -837,6 +895,7 @@
           }
           renderSession(proof);
           renderRecord(proof);
+          renderCost(proof);
           renderSubstitutions(proof);
           renderVerification(proof);
         })

@@ -51,7 +51,7 @@ async function main() {
   add(
     "Amount the agent actually spent",
     `$${receipts.totals.spent_usd}`,
-    "the Passport's own usage.spent_total",
+    "the sum of the purchase prices in the decision log, cross-checked against the Passport's usage.spent_total",
     "kpass activity --output json",
   );
   add(
@@ -71,6 +71,12 @@ async function main() {
     `${receipts.chain.network} (${receipts.chain.symbol})`,
     "the x402 challenge the merchant returned",
     "npm run demo",
+  );
+  add(
+    "What the limit cost",
+    `$${receipts.counterfactual.cost_usd} against a $${receipts.counterfactual.budget_usd} budget (${receipts.counterfactual.budget_multiplier}x)`,
+    "the refused attempts in the decision log, priced",
+    "npm run receipts",
   );
   add(
     "Decision log algorithm",

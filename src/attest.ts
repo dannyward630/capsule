@@ -14,15 +14,11 @@
  * settled on chain, and the refusals inside it were decided by the Passport.
  */
 import { readFile } from "node:fs/promises";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { recoverMessageAddress, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
-const exec = promisify(execFile);
-
 /** The prod Passport. The dev Passport is a different set of agents. */
-export const PASSPORT_AGENT_BASE_URL = "https://passport.prod.gokite.ai";
+export const PASSPORT_API = "https://passport.prod.gokite.ai";
 
 export const ATTESTATION_ALGORITHM = "EIP-191 secp256k1 (personal_sign)";
 
@@ -68,38 +64,44 @@ export interface AgentKey {
 }
 
 /**
- * The agent's published signing keys, read from the Passport's public directory.
- * A public read: no credential, no runtime key.
+ * The agent's published signing keys, read from the Passport's public
+ * directory.
+ *
+ * This is a plain HTTPS GET on an endpoint that needs no credential and no
+ * runtime key, so a judge can run it without installing anything:
+ *
+ *   curl https://passport.prod.gokite.ai/v1/agents/<did>/signingKeys
  */
 export async function fetchPublishedKeys(
   did: string,
 ): Promise<AgentKey[]> {
-  const { stdout } = await exec(
-    "ksearch",
-    [
-      "agent",
-      "keys",
-      did,
-      "--agent-base-url",
-      PASSPORT_AGENT_BASE_URL,
-      "--output",
-      "json",
-    ],
-    { timeout: 45_000, maxBuffer: 4 * 1024 * 1024 },
-  );
-  const parsed = JSON.parse(stdout) as {
-    keys?: Array<{
-      key_id?: string;
-      pub_key?: string;
-      address?: string;
-      active?: boolean;
-    }>;
+  const url = `${PASSPORT_API}/v1/agents/${encodeURIComponent(did)}/signingKeys`;
+  const response = await fetch(url, {
+    headers: { accept: "application/json" },
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) {
+    throw new Error(
+      `the Passport directory answered HTTP ${response.status} for ${did}`,
+    );
+  }
+  const body = (await response.json()) as {
+    data?: {
+      keys?: Array<{
+        key_id?: string;
+        pub_key?: string;
+        address?: string;
+        settlement_address?: string;
+        active?: boolean;
+        status?: string;
+      }>;
+    };
   };
-  return (parsed.keys ?? []).map((key) => ({
+  return (body.data?.keys ?? []).map((key) => ({
     key_id: key.key_id ?? "",
     pub_key: key.pub_key ?? "",
-    address: key.address ?? "",
-    active: key.active ?? false,
+    address: key.address ?? key.settlement_address ?? "",
+    active: key.active ?? key.status === "active",
   }));
 }
 

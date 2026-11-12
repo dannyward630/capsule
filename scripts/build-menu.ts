@@ -40,6 +40,7 @@ interface Endpoint {
   payment_chain?: string;
   payment_asset?: string;
   query_params?: QueryParam[];
+  tags?: string[];
   body_params?: Array<{ name: string; type?: string; required?: boolean; default?: string; example?: string }>;
   starting_price?: { amount?: string; asset?: string; unit?: string };
   probe_status?: string;
@@ -123,6 +124,7 @@ async function main() {
         chain,
         asset,
         probe_status: endpoint.probe_status ?? "unknown",
+        tags: endpoint.tags ?? [],
         summary: (endpoint.summary ?? "").slice(0, 320),
         query_params: (endpoint.query_params ?? []).map((param) => param.name),
       });

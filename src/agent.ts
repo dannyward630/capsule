@@ -8,8 +8,14 @@
  */
 import { randomUUID } from "node:crypto";
 import { Kpass, isCapRefusal, type KpassResult } from "./kpass.js";
-import { ServClient } from "./serv.js";
-import { loadMenu, type Menu, type MenuEntry } from "./menu.js";
+import { ServClient, parseChoice, SYSTEM_PROMPT } from "./serv.js";
+import {
+  affordable,
+  loadMenu,
+  outOfReach,
+  type Menu,
+  type MenuEntry,
+} from "./menu.js";
 import type { ReceiptStep } from "./proof.js";
 import type { Decision, DecisionLog, LogRecord } from "./log.js";
 
@@ -43,20 +49,6 @@ export interface AgentRun {
   records: LogRecord[];
 }
 
-export const SYSTEM_PROMPT = `You are the decision layer of an agent that buys data with real money.
-Every price and every budget figure is in US dollars.
-Reply with JSON only.
-
-Rules:
-- Cover ONE fact per turn: the one named in fact_to_cover.
-- Buy exactly one endpoint per turn, to answer that fact.
-- You may buy any endpoint whose price is at most budget_remaining_usd.
-- Covering one fact is worth much more than covering none. Never refuse to buy just because some other fact is unaffordable.
-- If the best endpoint for a fact costs more than the budget, buy a cheaper endpoint that covers it partly, or skip that fact and name it unchecked in the final answer.
-- Choose the endpoint that best answers the missing fact, not merely the cheapest one.
-- If a purchase is refused, you will be told; pick a different endpoint, never the same one again.
-- Never name an endpoint that is not on the menu; copy its id exactly.
-- In "reason", say which fact the purchase adds.`;
 
 interface ModelDecision {
   action: "buy" | "answer";
@@ -109,14 +101,24 @@ export class Agent {
       // budget makes it do a global feasibility check and buy nothing at all.
       const untried = missing.filter((fact) => !attempted.has(fact));
       const factToCover = untried[0] ?? missing[0] ?? null;
-      const decision = await this.decide(
-        factToCover,
-        missing,
-        bought,
-        refusals,
-        evidence,
-        session,
-      );
+      let decision: ModelDecision;
+      try {
+        decision = await this.decide(
+          factToCover,
+          missing,
+          bought,
+          refusals,
+          evidence,
+          session,
+        );
+      } catch (error) {
+        refusals.push({
+          endpoint: "(the decision layer)",
+          error_code: "reasoning_unavailable",
+          message: `the reasoning layer failed: ${error instanceof Error ? error.message : String(error)}`,
+        });
+        break;
+      }
       if (process.env.DEMO_TRACE) {
         const spentNow = Number(session.spent_total ?? 0);
         const budgetNow = Number(session.max_total_amount ?? this.options.budgetUsd);
@@ -137,7 +139,10 @@ export class Agent {
         }
         break;
       }
-      const entry = this.resolve(decision.id);
+      // A purchase is only made for an endpoint the model named exactly. The
+      // fuzzy resolver is for display only: a mangled id must never be paid
+      // for the wrong endpoint.
+      const entry = this.menu?.endpoints.find((item) => item.id === decision.id);
       if (!entry) {
         refusals.push({
           endpoint: decision.id,
@@ -338,14 +343,21 @@ export class Agent {
               endpoint: item.label,
               data: summarise(item.data),
             })),
-            menu: (this.menu?.endpoints ?? []).map((entry) => ({
-              id: entry.id,
-              service: entry.service,
-              method: entry.method,
-              path: entry.path,
-              price_usd: `$${entry.price_usd}`,
-              summary: entry.summary,
-            })),
+            // The code decides what is affordable. The model is handed only
+            // the shortlist, so it can never plan past the budget.
+            menu: affordable(
+              this.menu ?? ({ endpoints: [] } as unknown as Menu),
+              remaining,
+            ).map(
+              (entry) => ({
+                id: entry.id,
+                service: entry.service,
+                method: entry.method,
+                path: entry.path,
+                price_usd: `$${entry.price_usd}`,
+                summary: entry.summary,
+              }),
+            ),
           }),
         },
       ],
@@ -395,7 +407,8 @@ export class Agent {
       error: null,
     });
     const content = payload.choices?.[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(content) as Partial<ModelDecision>;
+    // The same parser the tests cover, so a fenced reply cannot abort a run.
+    const parsed = parseChoice(content) as unknown as Partial<ModelDecision>;
     if (parsed.action !== "buy" && parsed.action !== "answer") {
       throw new Error(`SERV returned an unknown action: ${String(parsed.action)}`);
     }
