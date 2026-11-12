@@ -6,6 +6,8 @@
  * real USDC. The proof page re-reads the chain rather than repeating what our
  * README says about it.
  */
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import express, { type Request, type Response } from "express";
 import { paymentMiddleware } from "@x402/express";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
@@ -18,6 +20,7 @@ import {
 } from "./kite.js";
 import { CATALOG } from "./catalog.js";
 import { sellerRouter } from "./seller.js";
+import { REPO_ROOT, type Receipts } from "./proof.js";
 import {
   chainFor,
   dollarsToBaseUnits,
@@ -79,6 +82,19 @@ export function paidRoutes(config: AppConfig): RoutesConfig {
   return routes;
 }
 
+async function readContrast(): Promise<Receipts | null> {
+  try {
+    return JSON.parse(
+      await readFile(
+        path.join(REPO_ROOT, "docs", "runs", "contrast", "receipts.json"),
+        "utf8",
+      ),
+    ) as Receipts;
+  } catch {
+    return null;
+  }
+}
+
 export function createApp(config: AppConfig = readConfig()) {  const app = express();
   app.disable("x-powered-by");
   // Vercel terminates TLS in front of the function and forwards the original
@@ -120,6 +136,7 @@ export function createApp(config: AppConfig = readConfig()) {  const app = expre
           "No demo run has been recorded yet. The receipts file is written by `npm run demo`.",
       });
     }
+    const contrast = await readContrast();
     const chain = chainFor(receipts.chain.network);
     const checks = await Promise.all(
       receipts.steps
@@ -156,6 +173,7 @@ export function createApp(config: AppConfig = readConfig()) {  const app = expre
       attestation: receipts.attestation,
       published_key: receipts.published_key,
       substitutions: receipts.substitutions,
+      contrast,
       totals: receipts.totals,
       steps: receipts.steps,
       chain_checks: checks,

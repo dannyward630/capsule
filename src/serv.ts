@@ -131,7 +131,23 @@ Task: ${input.task}`;
 }
 
 /** Parses the model's JSON answer, tolerating a fenced block. */
-export function parseChoice(content: string): ServChoice {
+export interface ParsedDecision {
+  action: "buy" | "stop" | "answer";
+  /** The endpoint the model named, when it named one. */
+  id: string | null;
+  endpoint: string | null;
+  topic: string | null;
+  reason: string;
+}
+
+/**
+ * Parses a model's JSON decision.
+ *
+ * One parser for both callers, and it keeps every field the model sent. The
+ * earlier version returned a fixed shape and silently dropped the `id`, so the
+ * agent saw a decision with no endpoint and bought nothing at all.
+ */
+export function parseChoice(content: string): ParsedDecision {
   const cleaned = content
     .trim()
     .replace(/^```(?:json)?/i, "")
@@ -143,13 +159,14 @@ export function parseChoice(content: string): ServChoice {
   } catch {
     throw new Error(`SERV returned unparseable JSON: ${cleaned.slice(0, 200)}`);
   }
-  const row = parsed as Partial<ServChoice>;
+  const row = (parsed ?? {}) as Record<string, unknown>;
   const action = row.action;
   if (action !== "buy" && action !== "stop" && action !== "answer") {
     throw new Error(`SERV returned an unknown action: ${String(action)}`);
   }
   return {
     action,
+    id: typeof row.id === "string" ? row.id : null,
     endpoint: typeof row.endpoint === "string" ? row.endpoint : null,
     topic: typeof row.topic === "string" ? row.topic : null,
     reason: typeof row.reason === "string" ? row.reason : "",

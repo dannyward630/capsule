@@ -31,6 +31,17 @@ async function main() {
     console.log("no docs/receipts.json — the README was not touched");
     return;
   }
+  let contrast: Receipts | null = null;
+  try {
+    contrast = JSON.parse(
+      await readFile(
+        path.join(REPO_ROOT, "docs", "runs", "contrast", "receipts.json"),
+        "utf8",
+      ),
+    ) as Receipts;
+  } catch {
+    contrast = null;
+  }
 
   const paid = receipts.steps.filter((step) => step.outcome === "paid");
   const refused = receipts.steps.filter((step) => step.outcome === "refused");
@@ -82,7 +93,34 @@ ${facts}
 **The limit cost ${money(counterfactual.cost_usd)} of evidence against a
 ${money(counterfactual.budget_usd)} budget — ${counterfactual.budget_multiplier ?? "?"}× the whole
 budget.** ${counterfactual.unattempted_facts.length ? `The agent never got to try ${counterfactual.unattempted_facts.join(", ")}.` : ""}
-`;
+${
+  contrast
+    ? `
+### The same task, a different limit
+
+The only thing that changed is the number the user signed.
+
+| | The recorded run | The contrast run |
+| --- | --- | --- |
+| Per call | ${money(receipts.session.max_amount_per_tx)} | ${money(contrast.session.max_amount_per_tx)} |
+| In total | ${money(receipts.session.max_total_amount)} | ${money(contrast.session.max_total_amount)} |
+| Settled | ${receipts.totals.payments} | ${contrast.totals.payments} |
+| Refused | ${receipts.totals.refusals} | ${contrast.totals.refusals} |
+| Spent | ${money(receipts.totals.spent_usd)} | ${money(contrast.totals.spent_usd)} |
+
+${
+  contrast.steps
+    .filter((step) => step.outcome === "paid" && step.price_usd === "0.05")
+    .map(
+      (step) =>
+        `The $${step.price_usd} endpoint that was **refused** above was **paid** here — \`${step.tx_hash ?? ""}\`.`,
+    )
+    .join(" ")
+}
+The refusals were not a broken agent. They were the limit, doing its job.
+`
+    : ""
+}`;
 
   if (!readme.includes(BEGIN) || !readme.includes(END)) {
     console.log("the README has no generated block; nothing to do");

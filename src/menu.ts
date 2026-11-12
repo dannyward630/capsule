@@ -65,7 +65,7 @@ export async function loadMenu(): Promise<Menu> {
  * code that wants to spend it — the thing this whole project exists to avoid.
  */
 export function relevantTo(menu: Menu, fact: string): MenuEntry[] {
-  return menu.endpoints
+  const matched = menu.endpoints
     .map((entry) => ({ entry, score: matchScore(entry, fact) }))
     .filter((row) => row.score > 0)
     .sort(
@@ -73,6 +73,13 @@ export function relevantTo(menu: Menu, fact: string): MenuEntry[] {
         b.score - a.score || Number(a.entry.price_usd) - Number(b.entry.price_usd),
     )
     .map((row) => row.entry);
+  if (matched.length) return matched;
+  // No endpoint in the catalog claims this fact. The model still gets to try
+  // the cheapest ones for partial coverage, and the record will say that it
+  // could not cover the fact rather than that it never looked.
+  return [...menu.endpoints]
+    .sort((a, b) => Number(a.price_usd) - Number(b.price_usd))
+    .slice(0, 3);
 }
 
 /**

@@ -808,7 +808,46 @@
           The refusals were not free attempts. Each one names the endpoint the agent
           wanted, the price it walked away from, and the limit that stopped it. The cost is
           the sum of those prices, taken from the catalog.
-        </p>`;
+        </p>
+        ${renderContrast(proof)}`;
+      }
+
+      function renderContrast(proof) {
+        const other = proof.contrast;
+        if (!other) return "";
+        const paidBoth = other.steps.filter(
+          (step) => step.outcome === "paid" && step.price_usd === "0.05"
+        );
+        const rows = [
+          ["Per call", money(proof.session.max_amount_per_tx), money(other.session.max_amount_per_tx)],
+          ["In total", money(proof.session.max_total_amount), money(other.session.max_total_amount)],
+          ["Settled", proof.totals.payments, other.totals.payments],
+          ["Refused", proof.totals.refusals, other.totals.refusals],
+          ["Spent", money(proof.totals.spent_usd), money(other.totals.spent_usd)],
+        ]
+          .map(
+            (row) =>
+              `<tr><td class="wrap">${escape(row[0])}</td><td>${escape(row[1])}</td><td>${escape(row[2])}</td></tr>`
+          )
+          .join("");
+        return `<div class="verify" style="margin-top:14px">
+          <div class="verify-head">
+            <span class="headline">The same task, a different limit</span>
+            <span class="spacer"></span>
+            <span style="color:var(--ink-3);font-size:0.83rem">only the number the user signed changed</span>
+          </div>
+          <table class="checks">
+            <thead><tr><th></th><th>This run</th><th>The contrast run</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+          ${
+            paidBoth.length
+              ? `<div class="hashline">The $${escape(paidBoth[0].price_usd)} endpoint that was <b>refused</b> above was <b>paid</b> here — ${escape(
+                  paidBoth[0].tx_hash ?? ""
+                )}.<br />The refusals were not a broken agent. They were the limit, doing its job.</div>`
+              : ""
+          }
+        </div>`;
       }
 
       function renderVerification(proof) {

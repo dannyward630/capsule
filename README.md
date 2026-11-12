@@ -65,6 +65,21 @@ The refusals were not free attempts — they were evidence the agent wanted and 
 **The limit cost $0.051 of evidence against a
 $0.0025 budget — 20.4× the whole
 budget.** The agent never got to try main risk factors.
+
+### The same task, a different limit
+
+The only thing that changed is the number the user signed.
+
+| | The recorded run | The contrast run |
+| --- | --- | --- |
+| Per call | $0.002 | $0.06 |
+| In total | $0.0025 | $0.1 |
+| Settled | 2 | 3 |
+| Refused | 2 | 0 |
+| Spent | $0.0020 | $0.052 |
+
+The $0.05 endpoint that was **refused** above was **paid** here — `0xd769e94012206754dcf5c93921aa1fda87e14910d4246553828866851abfdaf5`.
+The refusals were not a broken agent. They were the limit, doing its job.
 <!-- END:GENERATED -->
 
 ## The three anchors

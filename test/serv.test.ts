@@ -16,6 +16,15 @@ test("a fenced answer is parsed", () => {
   assert.equal(choice.endpoint, null);
 });
 
+test("the parser keeps the endpoint id the model named", () => {
+  // The parser used to return a fixed shape and drop the id, so the agent saw
+  // a decision with no endpoint and bought nothing.
+  const parsed = parseChoice('{"action":"buy","id":"e09","reason":"it covers the fact"}');
+  assert.equal(parsed.action, "buy");
+  assert.equal(parsed.id, "e09");
+  assert.equal(parsed.reason, "it covers the fact");
+});
+
 test("an unknown action is an error, not a silent default", () => {
   assert.throws(() => parseChoice('{"action":"buy_now"}'), /unknown action/);
 });

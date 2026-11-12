@@ -297,6 +297,10 @@ export class Agent {
     },
   ): Promise<ModelDecision> {
     const model = process.env.SERV_MODEL ?? "gpt-5.4-mini";
+    // The code decides which endpoints could answer the fact being worked on.
+    const shortlist = factToCover
+      ? relevantTo(this.menu ?? ({ endpoints: [] } as unknown as Menu), factToCover)
+      : [];
     const spent = Number(session.spent_total ?? 0);
     const budget = Number(session.max_total_amount ?? this.options.budgetUsd);
     const remaining = Math.max(0, budget - spent);
@@ -325,11 +329,7 @@ export class Agent {
             // worked on, from the catalog's own metadata. It does not decide
             // what the agent may afford: that is the Passport's, and the limit
             // must not live in the code that wants to spend it.
-            menu: (
-              factToCover
-                ? relevantTo(this.menu ?? ({ endpoints: [] } as unknown as Menu), factToCover)
-                : []
-            ).map(
+            menu: shortlist.map(
               (entry) => ({
                 id: entry.id,
                 service: entry.service,
@@ -388,6 +388,11 @@ export class Agent {
       error: null,
     });
     const content = payload.choices?.[0]?.message?.content ?? "{}";
+    if (process.env.DEMO_TRACE) {
+      console.log(
+        `    [serv] fact=${factToCover ?? "-"} shortlist=${shortlist.length} raw=${content.slice(0, 160)}`,
+      );
+    }
     // The same parser the tests cover, so a fenced reply cannot abort a run.
     const parsed = parseChoice(content) as unknown as Partial<ModelDecision>;
     if (parsed.action !== "buy" && parsed.action !== "answer") {
