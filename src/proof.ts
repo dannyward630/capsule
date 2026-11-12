@@ -69,7 +69,13 @@ export interface Receipts {
     wanted_price_usd: string;
     reason: string;
     error_code: string;
-    instead_of: { seq: number; service: string; price_usd: string } | null;
+    instead_of: {
+      seq: number;
+      service: string;
+      price_usd: string;
+      outcome: "bought" | "also refused";
+      error_code: string | null;
+    } | null;
     instead_reason: string | null;
   }>;
   steps: ReceiptStep[];

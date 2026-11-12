@@ -312,6 +312,7 @@
       }
       .swap .side.wanted { border-left: 2px solid var(--refused); }
       .swap .side.got { border-left: 2px solid var(--settled); }
+      .swap .side.tried { border-left: 2px solid var(--ink-3); }
       .swap .side .label {
         font: 600 0.62rem/1 var(--mono);
         letter-spacing: 0.11em;
@@ -707,13 +708,21 @@
                 <div class="note">${escape(money(row.wanted_price_usd))} — ${escape(plain(row.error_code))}.</div>
               </div>`;
               const right = instead
-                ? `<div class="side got">
-                    <div class="label">Bought instead</div>
-                    <div class="name">${escape(instead.service)}</div>
-                    <div class="note">${escape(money(instead.price_usd))}${
-                      row.instead_reason ? " — " + escape(row.instead_reason) : ""
-                    }</div>
-                  </div>`
+                ? instead.outcome === "bought"
+                  ? `<div class="side got">
+                      <div class="label">Bought instead</div>
+                      <div class="name">${escape(instead.service)}</div>
+                      <div class="note">${escape(money(instead.price_usd))}${
+                        row.instead_reason ? " — " + escape(row.instead_reason) : ""
+                      }</div>
+                    </div>`
+                  : `<div class="side tried">
+                      <div class="label">Tried instead</div>
+                      <div class="name">${escape(instead.service)}</div>
+                      <div class="note">${escape(money(instead.price_usd))} — refused too${
+                        instead.error_code ? " (" + escape(instead.error_code) + ")" : ""
+                      }.</div>
+                    </div>`
                 : `<div class="side">
                     <div class="label">Bought instead</div>
                     <div class="name">nothing — the budget was gone</div>

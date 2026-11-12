@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-11-11T19:43:26.543Z",
+  "generated_at": "2026-11-12T05:50:50.237Z",
   "task": "Give me a cautious assessment of ETH: has it trended up this month, how volatile is it, and what are the main risks I should know about?",
-  "claim": "An agent that spends your money under a limit you signed - and every payment carries proof it never went over.",
+  "claim": "Every purchase your agent made, every one it was refused, and the price of each - refusals decided by your Passport, not by the agent.",
   "session": {
-    "session_id": "agent_session_01a1cc21-94f8-73d4-a64f-f883676f09d4",
+    "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
     "task_summary": null,
     "max_amount_per_tx": "0.002",
     "max_total_amount": "0.0025",
@@ -24,9 +24,42 @@
     "name": "Kite service catalog",
     "pay_to": "0xCfca130E445A5178d621aAd38E51D049855911c2"
   },
+  "log": {
+    "algorithm": "keccak-256",
+    "path": "docs/decision-log.jsonl",
+    "records": 4,
+    "head": "0x6ab76d14fe58ea60c1f5f9a0cf9a4319ad9a37ce7c888c464f74a8ea848e581e",
+    "verified": true
+  },
+  "substitutions": [
+    {
+      "refusal_seq": 2,
+      "wanted": "Google Trends (x402Atlas) /trend-over-time https://google-trends.use.x402atlas.com/trend-over-time",
+      "wanted_price_usd": "0.05",
+      "reason": "This purchase best covers the fact to_cover: search interest and trend over the last month. It directly provides Google Trends interest over time for ETH across the last 30 days, which is the strongest match for assessing month-long search interest and trend.",
+      "error_code": "session_rule_exceeded",
+      "instead_of": {
+        "seq": 3,
+        "service": "Otto AI /funding-rates",
+        "price_usd": "0.001",
+        "outcome": "also refused",
+        "error_code": "session_total_exceeded"
+      },
+      "instead_reason": "This endpoint best adds the requested fact_to_cover, because live funding, open interest, liquidations, and long/short ratios are the most direct proxy for ETH volatility and drawdown risk within budget."
+    },
+    {
+      "refusal_seq": 3,
+      "wanted": "Otto AI /funding-rates https://x402.ottoai.services/funding-rates",
+      "wanted_price_usd": "0.001",
+      "reason": "This endpoint best adds the requested fact_to_cover, because live funding, open interest, liquidations, and long/short ratios are the most direct proxy for ETH volatility and drawdown risk within budget.",
+      "error_code": "session_total_exceeded",
+      "instead_of": null,
+      "instead_reason": null
+    }
+  ],
   "steps": [
     {
-      "n": 1,
+      "n": 0,
       "url": "https://agent402.tools/api/crypto-price?coins=ETH&currency=usd",
       "endpoint": "Agent402 Tools /api/crypto-price",
       "price_usd": "0.001",
@@ -34,13 +67,13 @@
       "http_status": 200,
       "error_code": null,
       "error_message": null,
-      "tx_hash": "0x591ba92f2be7458029aeb2942168512c0d6dbbd13a5da27b21b1db842342d271",
-      "session_id": "agent_session_01a1cc21-94f8-73d4-a64f-f883676f09d4",
-      "spent_total_after": "0.001",
-      "paid_at": "2026-11-11T19:42:46.054Z"
+      "tx_hash": "0xf222835b302b905f6d00c5e620cfc59a7b97c1f1d9672eb4c9cdd682e3ecde4e",
+      "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
+      "spent_total_after": null,
+      "paid_at": "2026-11-12T05:50:23.053Z"
     },
     {
-      "n": 2,
+      "n": 1,
       "url": "https://x402.ottoai.services/filtered-news?topic=ETH",
       "endpoint": "Otto AI /filtered-news",
       "price_usd": "0.001",
@@ -48,13 +81,13 @@
       "http_status": 200,
       "error_code": null,
       "error_message": null,
-      "tx_hash": "0xaeb58efc0b0eaa6146a0024eccfafca022cf6b25a680f313cae94d81c688b2cb",
-      "session_id": "agent_session_01a1cc21-94f8-73d4-a64f-f883676f09d4",
-      "spent_total_after": "0.002",
-      "paid_at": "2026-11-11T19:43:03.750Z"
+      "tx_hash": "0x92031083779833938768c700c2a23a06d340ee08d7c5b124d65939f5f72c2920",
+      "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
+      "spent_total_after": null,
+      "paid_at": "2026-11-12T05:50:43.982Z"
     },
     {
-      "n": 3,
+      "n": 2,
       "url": "https://google-trends.use.x402atlas.com/trend-over-time?geo=US&keyword=ETH&timeframe=past_12_months",
       "endpoint": "Google Trends (x402Atlas) /trend-over-time",
       "price_usd": "0.05",
@@ -63,43 +96,29 @@
       "error_code": "session_rule_exceeded",
       "error_message": "payment amount exceeds max_amount_per_tx",
       "tx_hash": null,
-      "session_id": null,
+      "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
       "spent_total_after": null,
       "paid_at": null
     },
     {
-      "n": 6,
-      "url": "https://x402.ottoai.services/defi-analytics?protocol=aave",
-      "endpoint": "Otto AI /defi-analytics",
+      "n": 3,
+      "url": "https://x402.ottoai.services/funding-rates?symbol=ETH",
+      "endpoint": "Otto AI /funding-rates",
       "price_usd": "0.001",
       "outcome": "refused",
       "http_status": null,
       "error_code": "session_total_exceeded",
       "error_message": "payment amount exceeds max_total_amount",
       "tx_hash": null,
-      "session_id": null,
-      "spent_total_after": null,
-      "paid_at": null
-    },
-    {
-      "n": 8,
-      "url": "https://x402.ottoai.services/funding-rates?symbol=ETH",
-      "endpoint": "Otto AI /funding-rates",
-      "price_usd": "0.001",
-      "outcome": "refused",
-      "http_status": null,
-      "error_code": "separate_session_used_up",
-      "error_message": "The separate spending session agent_session_01a1cc21-94f8-73d4-a64f-f883676f09d4 is used up. Nothing was sent.",
-      "tx_hash": null,
-      "session_id": null,
+      "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
       "spent_total_after": null,
       "paid_at": null
     }
   ],
   "totals": {
     "payments": 2,
-    "refusals": 3,
-    "spent_usd": "0.002",
+    "refusals": 2,
+    "spent_usd": "0.0020",
     "session_budget_usd": "0.0025"
   }
 }

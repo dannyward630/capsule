@@ -321,7 +321,7 @@ export class Agent {
       model,
       // The decision is a small JSON object. Leaving max_tokens to the gateway
       // lets it compute a value larger than the model's own completion cap.
-      max_tokens: 600,
+      max_completion_tokens: 600,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         {

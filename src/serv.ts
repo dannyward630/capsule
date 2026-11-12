@@ -171,7 +171,7 @@ Task: ${input.task}`;
           model,
           // Capped explicitly: the gateway's own default can exceed the
           // model's completion cap and come back as a 400.
-          max_tokens: 1400,
+          max_completion_tokens: 1400,
           messages: [
             { role: "system", content: "You answer a question from evidence and name what you could not check." },
             { role: "user", content: JSON.stringify({ ...input, instruction }) },

@@ -228,7 +228,17 @@ export interface Substitution {
   wanted_price_usd: string;
   reason: string;
   error_code: string;
-  instead_of: { seq: number; service: string; price_usd: string } | null;
+  /**
+   * What the agent did next. Either it bought something else, or it tried
+   * something else and was refused too, or the run ended there.
+   */
+  instead_of: {
+    seq: number;
+    service: string;
+    price_usd: string;
+    outcome: "bought" | "also refused";
+    error_code: string | null;
+  } | null;
   instead_reason: string | null;
 }
 
@@ -236,24 +246,38 @@ export function substitutions(records: LogRecord[]): Substitution[] {
   const out: Substitution[] = [];
   for (const record of records) {
     if (record.decision.kind !== "refusal") continue;
-    const next = records[record.seq + 1];
-    const instead =
-      next && next.decision.kind === "purchase" ? next : null;
+    // The next attempt of any kind, not just the next record: a refusal
+    // followed by another refusal is still the agent trying something else.
+    const next = records
+      .slice(record.seq + 1)
+      .find((candidate) => candidate.decision.kind !== "note");
+    let instead: Substitution["instead_of"] = null;
+    if (next && next.decision.kind === "purchase") {
+      instead = {
+        seq: next.seq,
+        service: next.decision.service,
+        price_usd: next.decision.price_usd,
+        outcome: "bought",
+        error_code: null,
+      };
+    } else if (next && next.decision.kind === "refusal") {
+      instead = {
+        seq: next.seq,
+        service: next.decision.service,
+        price_usd: next.decision.price_usd,
+        outcome: "also refused",
+        error_code: next.decision.error_code,
+      };
+    }
     out.push({
       refusal_seq: record.seq,
       wanted: `${record.decision.service} ${record.decision.url.split("?")[0]}`,
       wanted_price_usd: record.decision.price_usd,
       reason: record.decision.reason,
       error_code: record.decision.error_code,
-      instead_of: instead
-        ? {
-            seq: instead.seq,
-            service: instead.decision.kind === "purchase" ? instead.decision.service : "",
-            price_usd: instead.decision.kind === "purchase" ? instead.decision.price_usd : "",
-          }
-        : null,
+      instead_of: instead,
       instead_reason:
-        instead && instead.decision.kind === "purchase" ? instead.decision.reason : null,
+        next && next.decision.kind !== "note" ? next.decision.reason : null,
     });
   }
   return out;

@@ -138,7 +138,9 @@ async function main() {
           (row) =>
             `- Refusal ${row.refusal_seq}: wanted \`${row.wanted}\` at $${row.wanted_price_usd}; ` +
             (row.instead_of
-              ? `bought \`${row.instead_of.service}\` at $${row.instead_of.price_usd} instead.`
+              ? row.instead_of.outcome === "bought"
+                ? `bought \`${row.instead_of.service}\` at $${row.instead_of.price_usd} instead.`
+                : `tried \`${row.instead_of.service}\` at $${row.instead_of.price_usd} and was refused too (${row.instead_of.error_code}).`
               : "bought nothing - the budget was gone."),
         )
         .join("\n")

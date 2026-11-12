@@ -16,7 +16,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "await-approval": "npx tsx scripts/await-approval.ts",
     "menu": "npx tsx scripts/build-menu.ts",
-    "verify": "node --env-file=.env --import tsx scripts/verify.ts"
+    "verify": "node --env-file=.env --import tsx scripts/verify.ts",
+    "receipts": "node --env-file=.env --import tsx scripts/rebuild-receipts.ts"
   },
   "dependencies": {
     "@x402/core": "^2.25.0",

@@ -5,21 +5,29 @@ into prose that is not in this file.
 
 | Claim | Value | Source of truth | Verification command | Verified on |
 | --- | --- | --- | --- | --- |
-| Session budget the user signed | $0.0025 | the Passport delegation in the CLI output | `kpass session status --output json` | 2026-11-11 |
-| Per-transaction cap | $0.002 | the Passport delegation in the CLI output | `kpass session status --output json` | 2026-11-11 |
-| Amount the agent actually spent | $0.002 | the Passport's own usage.spent_total | `kpass activity --output json` | 2026-11-11 |
-| Payments settled on chain | 2 | the run log | `npm run demo` | 2026-11-11 |
-| Purchases the session refused | 3 | the run log | `npm run demo` | 2026-11-11 |
-| Settlement network | eip155:8453 (USDC) | the x402 challenge the merchant returned | `curl -sD- -o/dev/null '<seller>/v1/snapshot?topic=ETH'` | 2026-11-11 |
-| The service we built, which the Passport could not pay | 0xCfca130E445A5178d621aAd38E51D049855911c2 (received nothing) | our own Scout merchant's payment requirements | `curl -sD- -o/dev/null 'https://capsule-phi-blond.vercel.app/v1/snapshot?topic=ETH'` | 2026-11-11 |
-| Agent identity | agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c | the Passport | `kpass agent status --output json` | 2026-11-11 |
-| Transaction for Agent402 Tools /api/crypto-price | 0x591ba92f2be7458029aeb2942168512c0d6dbbd13a5da27b21b1db842342d271 | the settlement response | `curl -s "https://api.basescan.org/api?module=proxy&action=eth_getTransactionByHash&txhash=0x591ba92f2be7458029aeb2942168512c0d6dbbd13a5da27b21b1db842342d271"` | 2026-11-11 |
-| Merchant that received the payment for Agent402 Tools /api/crypto-price | agent402.tools | the URL that was paid | `curl -sD- -o/dev/null 'https://agent402.tools/api/crypto-price?coins=ETH&currency=usd'` | 2026-11-11 |
-| Transaction for Otto AI /filtered-news | 0xaeb58efc0b0eaa6146a0024eccfafca022cf6b25a680f313cae94d81c688b2cb | the settlement response | `curl -s "https://api.basescan.org/api?module=proxy&action=eth_getTransactionByHash&txhash=0xaeb58efc0b0eaa6146a0024eccfafca022cf6b25a680f313cae94d81c688b2cb"` | 2026-11-11 |
-| Merchant that received the payment for Otto AI /filtered-news | x402.ottoai.services | the URL that was paid | `curl -sD- -o/dev/null 'https://x402.ottoai.services/filtered-news?topic=ETH'` | 2026-11-11 |
+| Session budget the user signed | $0.0025 | the Passport delegation in the CLI output | `kpass session status --output json` | 2026-11-12 |
+| Per-transaction cap | $0.002 | the Passport delegation in the CLI output | `kpass session status --output json` | 2026-11-12 |
+| Amount the agent actually spent | $0.0020 | the Passport's own usage.spent_total | `kpass activity --output json` | 2026-11-12 |
+| Payments settled on chain | 2 | the decision log | `npm run demo` | 2026-11-12 |
+| Purchases the session refused | 2 | the decision log | `npm run demo` | 2026-11-12 |
+| Settlement network | eip155:8453 (USDC) | the x402 challenge the merchant returned | `npm run demo` | 2026-11-12 |
+| Decision log algorithm | keccak-256 | the log's own header | `npm run verify` | 2026-11-12 |
+| Decision log records | 4 | the log | `npm run verify` | 2026-11-12 |
+| Decision log head | 0x6ab76d14fe58ea60c1f5f9a0cf9a4319ad9a37ce7c888c464f74a8ea848e581e | the log | `npm run verify` | 2026-11-12 |
+| Decision log chain intact | yes | the verifier | `npm run verify` | 2026-11-12 |
+| The service we built, which the Passport could not pay | 0xCfca130E445A5178d621aAd38E51D049855911c2 (received nothing) | our own Scout merchant's payment requirements | `curl -sD- -o/dev/null 'https://capsule-phi-blond.vercel.app/v1/snapshot?topic=ETH'` | 2026-11-12 |
+| Agent identity | agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c | the Passport | `kpass agent status --output json` | 2026-11-12 |
+| Transaction for Agent402 Tools /api/crypto-price | 0xf222835b302b905f6d00c5e620cfc59a7b97c1f1d9672eb4c9cdd682e3ecde4e | the settlement response | `curl -s "https://api.basescan.org/api?module=proxy&action=eth_getTransactionByHash&txhash=0xf222835b302b905f6d00c5e620cfc59a7b97c1f1d9672eb4c9cdd682e3ecde4e"` | 2026-11-12 |
+| Merchant that received the payment for Agent402 Tools /api/crypto-price | agent402.tools | the URL that was paid | `curl -sD- -o/dev/null 'https://agent402.tools/api/crypto-price?coins=ETH&currency=usd'` | 2026-11-12 |
+| Transaction for Otto AI /filtered-news | 0x92031083779833938768c700c2a23a06d340ee08d7c5b124d65939f5f72c2920 | the settlement response | `curl -s "https://api.basescan.org/api?module=proxy&action=eth_getTransactionByHash&txhash=0x92031083779833938768c700c2a23a06d340ee08d7c5b124d65939f5f72c2920"` | 2026-11-12 |
+| Merchant that received the payment for Otto AI /filtered-news | x402.ottoai.services | the URL that was paid | `curl -sD- -o/dev/null 'https://x402.ottoai.services/filtered-news?topic=ETH'` | 2026-11-12 |
 
 ## The refusals, in order
 
-- Step 3: `Google Trends (x402Atlas) /trend-over-time` at $0.05 was refused with `session_rule_exceeded` — payment amount exceeds max_amount_per_tx
-- Step 6: `Otto AI /defi-analytics` at $0.001 was refused with `session_total_exceeded` — payment amount exceeds max_total_amount
-- Step 8: `Otto AI /funding-rates` at $0.001 was refused with `separate_session_used_up` — The separate spending session agent_session_01a1cc21-94f8-73d4-a64f-f883676f09d4 is used up. Nothing was sent.
+- Step 2: `Google Trends (x402Atlas) /trend-over-time` at $0.05 was refused with `session_rule_exceeded` - payment amount exceeds max_amount_per_tx
+- Step 3: `Otto AI /funding-rates` at $0.001 was refused with `session_total_exceeded` - payment amount exceeds max_total_amount
+
+## What it bought instead
+
+- Refusal 2: wanted `Google Trends (x402Atlas) /trend-over-time https://google-trends.use.x402atlas.com/trend-over-time` at $0.05; tried `Otto AI /funding-rates` at $0.001 and was refused too (session_total_exceeded).
+- Refusal 3: wanted `Otto AI /funding-rates https://x402.ottoai.services/funding-rates` at $0.001; bought nothing - the budget was gone.
