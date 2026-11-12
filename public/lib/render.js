@@ -73,7 +73,7 @@ export function renderRecord(proof) {
       const meta = [];
       if (paid && step.tx_hash) {
         meta.push(
-          `<a href="${escape(proof.chain.explorer)}/tx/${escape(step.tx_hash)}" target="_blank" rel="noreferrer">tx ${escape(
+          `<a href="${escape(proof.chain?.explorer ?? "")}/tx/${escape(step.tx_hash)}" target="_blank" rel="noreferrer">tx ${escape(
             step.tx_hash.slice(0, 12),
           )}…</a>`,
         );
@@ -280,7 +280,7 @@ export function renderVerification(proof) {
         <td>${escape(check.merchant ?? "")}</td>
         <td>${
           check.tx_hash
-            ? `<a href="${escape(proof.chain.explorer)}/tx/${escape(check.tx_hash)}" target="_blank" rel="noreferrer">${escape(
+            ? `<a href="${escape(proof.chain?.explorer ?? "")}/tx/${escape(check.tx_hash)}" target="_blank" rel="noreferrer">${escape(
                 check.tx_hash.slice(0, 12),
               )}…</a>`
             : '<span style="color:var(--ink-3)">no hash recorded</span>'
@@ -311,8 +311,8 @@ export function renderVerification(proof) {
           ok ? "verified" : "fault",
           ok ? "every payment confirmed on chain" : "a payment is unconfirmed",
         )}
-        <span class="headline">${escape(proof.chain.symbol)} on ${escape(
-          proof.chain.network,
+        <span class="headline">${escape(proof.chain?.symbol ?? "USDC")} on ${escape(
+          proof.chain?.network ?? "",
         )}</span>
         <span class="spacer"></span>
         <span style="color:var(--ink-3);font-size:0.83rem">${

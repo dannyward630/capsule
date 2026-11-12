@@ -44,6 +44,14 @@ export interface PublishedProof {
   source: string;
   fetched_from: string;
   records: number;
+  /** The chain the record settled on, so a reader can follow the hashes. */
+  chain: {
+    network: string;
+    chain_id: number;
+    asset: string;
+    symbol: string;
+    explorer: string;
+  };
   /** "verified", "broken", or "not_a_capsule_log". */
   log_chain: "verified" | "broken" | "not_a_capsule_log";
   log_chain_detail: string | null;
@@ -63,7 +71,7 @@ export interface PublishedProof {
   };
   steps: Array<{
     n: number;
-    service: string;
+    endpoint: string;
     url: string;
     price_usd: string;
     outcome: "paid" | "refused";
@@ -143,6 +151,7 @@ export async function verifyPublishedLog(
   }
 
   const notes: string[] = [];
+  const firstChain = chainByName(records.find((r) => r.decision?.chain)?.decision?.chain);
   const capsuleLog = isCapsuleLog(records);
   let chainState: PublishedProof["log_chain"] = "not_a_capsule_log";
   let chainDetail: string | null = null;
@@ -172,7 +181,7 @@ export async function verifyPublishedLog(
     const isPurchase = decision.kind === "purchase" || Boolean(decision.tx_hash);
     steps.push({
       n: index,
-      service: decision.service ?? "(unnamed)",
+      endpoint: decision.service ?? "(unnamed)",
       url: decision.url ?? "",
       price_usd: decision.price_usd ?? "0",
       outcome: isPurchase ? "paid" : "refused",
@@ -233,6 +242,13 @@ export async function verifyPublishedLog(
     source: logUrl,
     fetched_from: fetchedFrom,
     records: records.length,
+    chain: {
+      network: firstChain.network,
+      chain_id: firstChain.chainId,
+      asset: firstChain.assetAddress,
+      symbol: firstChain.assetSymbol,
+      explorer: firstChain.explorerUrl,
+    },
     log_chain: chainState,
     log_chain_detail: chainDetail,
     session,

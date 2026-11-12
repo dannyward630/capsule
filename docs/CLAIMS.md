@@ -7,7 +7,7 @@ into prose that is not in this file.
 | --- | --- | --- | --- | --- |
 | Session budget the user signed | $0.0025 | the Passport delegation in the CLI output | `kpass session status --output json` | 2026-11-12 |
 | Per-transaction cap | $0.002 | the Passport delegation in the CLI output | `kpass session status --output json` | 2026-11-12 |
-| Amount the agent actually spent | $0.0020 | the sum of the purchase prices in the decision log, cross-checked against the Passport's usage.spent_total | `kpass activity --output json` | 2026-11-12 |
+| Amount the agent actually spent | $0.002 | the sum of the purchase prices in the decision log, cross-checked against the Passport's usage.spent_total | `kpass activity --output json` | 2026-11-12 |
 | Payments settled on chain | 2 | the decision log | `npm run demo` | 2026-11-12 |
 | Purchases the session refused | 2 | the decision log | `npm run demo` | 2026-11-12 |
 | Settlement network | eip155:8453 (USDC) | the x402 challenge the merchant returned | `npm run demo` | 2026-11-12 |

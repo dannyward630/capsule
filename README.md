@@ -47,7 +47,7 @@ cautious assessment of ETH.
 | 2 | `Google Trends (x402Atlas) /trend-over-time` | $0.05 | **refused** — `session_rule_exceeded` |
 | 3 | `Otto AI /funding-rates` | $0.001 | **refused** — `session_total_exceeded` |
 
-**$0.0020 spent of $0.0025.**
+**$0.002 spent of $0.0025.**
 2 settled on chain, 2 refused by the Passport.
 
 ### What the limit cost
@@ -76,7 +76,7 @@ The only thing that changed is the number the user signed.
 | In total | $0.0025 | $0.1 |
 | Settled | 2 | 3 |
 | Refused | 2 | 0 |
-| Spent | $0.0020 | $0.052 |
+| Spent | $0.002 | $0.052 |
 
 The $0.05 endpoint that was **refused** above was **paid** here — `0xd769e94012206754dcf5c93921aa1fda87e14910d4246553828866851abfdaf5`.
 The refusals were not a broken agent. They were the limit, doing its job.
@@ -96,6 +96,38 @@ times over, by three parties:
 
 `npm run verify` runs the whole check against the live deployment and exits zero only
 if all three hold.
+
+## Bring your own record
+
+This is how somebody else uses Capsule.
+
+If you run an agent that spends money, you publish its decision log — a hash-chained
+JSONL file — anywhere that serves it over https. You hand the link to whoever needs
+to see it: a customer, an auditor, the person who disputes a charge. Capsule fetches
+the log, checks its hash chain, reads every payment off the chain, and answers. The
+owner keeps their data; nothing is stored here.
+
+```bash
+curl "https://capsule-phi-blond.vercel.app/verify?log=https://example.com/decision-log.jsonl"
+```
+
+```bash
+# or read it in a browser
+open "https://capsule-phi-blond.vercel.app/?log=https://example.com/decision-log.jsonl"
+```
+
+Our own log is published, so the path has a real example to point at:
+
+```
+https://capsule-phi-blond.vercel.app/decision-log.jsonl
+```
+
+The fetcher is the one place in this project where the input is hostile, so it only
+fetches https, resolves the host and refuses any non-public address, checks every
+redirect hop, and caps the size and the time.
+
+A log that is not in Capsule's format still has its payments verified; only the hash
+chain is skipped, and the answer says so.
 
 ## How the limit is enforced
 
