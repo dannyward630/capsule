@@ -130,6 +130,27 @@ async function main() {
     contrast = undefined;
   }
 
+  if (contrast) {
+    try {
+      const contrastRecords = await new DecisionLog({
+        path: path.join(REPO_ROOT, "docs", "runs", "contrast", "decision-log.jsonl"),
+      }).read();
+      const contrastSession = contrastRecords.find((record) => record.session)?.session;
+      contrast.counterfactual = computeCounterfactual({
+        records: contrastRecords,
+        facts: (process.env.DEMO_FACTS ?? "").split(";").filter(Boolean),
+        menu: await loadMenu(),
+        budgetUsd: Number(
+          contrastSession?.max_total_amount ??
+            contrast.session?.max_total_amount ??
+            0,
+        ),
+      });
+    } catch {
+      // the contrast run's log is optional
+    }
+  }
+
   const receipts: Receipts = {
     ...(contrast ? { contrast } : {}),
     generated_at: records[records.length - 1]!.at,
@@ -177,7 +198,13 @@ async function main() {
       records,
       facts: (process.env.DEMO_FACTS ?? "").split(";").filter(Boolean),
       menu: await loadMenu(),
-      budgetUsd: Number(session?.max_total_amount ?? 0),
+      // The budget of the session that produced this run.
+      budgetUsd: Number(
+        logSession?.max_total_amount ??
+          previousSession?.max_total_amount ??
+          session?.max_total_amount ??
+          0,
+      ),
     }),
     substitutions: substitutions(records),
     steps,

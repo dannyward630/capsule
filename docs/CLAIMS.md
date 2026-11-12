@@ -11,7 +11,7 @@ into prose that is not in this file.
 | Payments settled on chain | 2 | the decision log | `npm run demo` | 2026-11-12 |
 | Purchases the session refused | 2 | the decision log | `npm run demo` | 2026-11-12 |
 | Settlement network | eip155:8453 (USDC) | the x402 challenge the merchant returned | `npm run demo` | 2026-11-12 |
-| What the limit cost | $0.051 against a $0.1 budget (0.51x) | the refused attempts in the decision log, priced | `npm run receipts` | 2026-11-12 |
+| What the limit cost | $0.051 against a $0.0025 budget (20.4x) | the refused attempts in the decision log, priced | `npm run receipts` | 2026-11-12 |
 | Decision log algorithm | keccak-256 | the log's own header | `npm run verify` | 2026-11-12 |
 | Decision log records | 4 | the log | `npm run verify` | 2026-11-12 |
 | Decision log head | 0x6ab76d14fe58ea60c1f5f9a0cf9a4319ad9a37ce7c888c464f74a8ea848e581e | the log | `npm run verify` | 2026-11-12 |

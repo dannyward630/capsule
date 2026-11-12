@@ -174,7 +174,7 @@
     "address": "0x5512caEe289ef639CD3181487F93920C5F544868",
     "algorithm": "EIP-191 secp256k1 (personal_sign)",
     "signature": "0x74e5c23572af270ec3b53a56a5143766e672882a8c1a8cb65e05ba7a2f8cdd2826160da61d70823432c1d8c87a26df387fce9101d3805f5e138824d10f5520921b",
-    "signed_at": "2026-11-12T10:07:30.170Z"
+    "signed_at": "2026-11-12T10:11:41.677Z"
   },
   "published_key": {
     "key_id": "did:kite:ind-akoladefatoki108:capsule-agent#jkt:7b8ca731257ec4b3",
@@ -246,8 +246,8 @@
       }
     ],
     "cost_usd": 0.051,
-    "budget_multiplier": 0.51,
-    "budget_usd": 0.1,
+    "budget_multiplier": 20.4,
+    "budget_usd": 0.0025,
     "unattempted_facts": [
       "main risk factors"
     ]
