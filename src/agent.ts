@@ -11,6 +11,7 @@ import { Kpass, isCapRefusal, type KpassResult } from "./kpass.js";
 import { ServClient } from "./serv.js";
 import { loadMenu, type Menu, type MenuEntry } from "./menu.js";
 import type { ReceiptStep } from "./proof.js";
+import type { Decision, DecisionLog, LogRecord } from "./log.js";
 
 export interface AgentOptions {
   /** The question the agent has to answer. */
@@ -20,6 +21,8 @@ export interface AgentOptions {
   /** The total budget the session allows, in dollars. */
   budgetUsd: number;
   maxSteps?: number;
+  /** Where every decision is written as it happens. */
+  log: DecisionLog;
 }
 
 export interface AgentRun {
@@ -36,6 +39,8 @@ export interface AgentRun {
   };
   coveredFacts: string[];
   missingFacts: string[];
+  /** The decision log, read back after the run. */
+  records: LogRecord[];
 }
 
 export const SYSTEM_PROMPT = `You are the decision layer of an agent that buys data with real money.
@@ -53,7 +58,7 @@ Rules:
 - Never name an endpoint that is not on the menu; copy its id exactly.
 - In "reason", say which fact the purchase adds.`;
 
-interface Decision {
+interface ModelDecision {
   action: "buy" | "answer";
   id: string | null;
   reason: string;
@@ -88,6 +93,9 @@ export class Agent {
     // Start from the session the user actually signed, so the budget the
     // model is told is the real one and not a guess.
     const current = await this.kpass.currentSession();
+    const chainNetwork =
+      process.env.SETTLEMENT_CHAIN === "kite" ? "eip155:2366" : "eip155:8453";
+    const chainSymbol = process.env.SETTLEMENT_CHAIN === "kite" ? "USDC.e" : "USDC";
     let session = {
       session_id: current?.session_id ?? null,
       max_amount_per_tx: current?.max_amount_per_tx ?? null,
@@ -153,6 +161,18 @@ export class Agent {
 
       if (result.ok) {
         bought.add(entry.id);
+        const purchase: Decision = {
+          kind: "purchase",
+          service: `${entry.service} ${entry.path}`,
+          url: entry.url,
+          price_usd: entry.price_usd,
+          asset: chainSymbol,
+          chain: chainNetwork,
+          tx_hash: null,
+          reason: decision.reason,
+          fact: factToCover,
+        };
+        await this.options.log.append(purchase);
         evidence.push({
           id: entry.id,
           label: `${entry.service} ${entry.path}`,
@@ -169,6 +189,20 @@ export class Agent {
 
       if (isCapRefusal(result)) {
         if (factToCover) attempted.add(factToCover);
+        const refusal: Decision = {
+          kind: "refusal",
+          service: `${entry.service} ${entry.path}`,
+          url: entry.url,
+          price_usd: entry.price_usd,
+          asset: chainSymbol,
+          chain: chainNetwork,
+          error_code: result.error_code ?? "unknown",
+          message:
+            result.error ?? result.hint ?? "the spending session refused this purchase",
+          reason: decision.reason,
+          fact: factToCover,
+        };
+        await this.options.log.append(refusal);
         refusals.push({
           endpoint: `${entry.service} ${entry.path} ($${entry.price_usd})`,
           error_code: result.error_code ?? "unknown",
@@ -194,18 +228,43 @@ export class Agent {
       const payment = payments.find((entry) => entry.url === step.url);
       if (payment) step.tx_hash = payment.txHash;
     }
+    // Write the settlement reference into the log record it belongs to, so the
+    // chain covers the hash of the transaction and not a placeholder.
+    const records = await this.options.log.read();
+    for (const record of records) {
+      if (record.decision.kind !== "purchase" || record.decision.tx_hash) continue;
+      const payment = payments.find(
+        (entry) => entry.url === (record.decision as { url: string }).url,
+      );
+      if (!payment) continue;
+      record.decision.tx_hash = payment.txHash;
+    }
+    await this.options.log.rewrite(records);
 
-    const final = await this.serv.answer({
-      task: this.options.task,
-      requiredFacts: this.options.requiredFacts,
-      evidence: evidence.map((item) => ({ endpoint: item.label, data: item.data })),
-      refusals,
-      session: {
-        max_amount_per_tx: session.max_amount_per_tx,
-        max_total_amount: session.max_total_amount,
-        spent_total: session.spent_total,
-      },
-    });
+    // The receipts are the artifact. If the reasoning layer fails at the last
+    // step, the run is still recorded and the gap is stated plainly.
+    let final: { text: string };
+    try {
+      final = await this.serv.answer({
+        task: this.options.task,
+        requiredFacts: this.options.requiredFacts,
+        evidence: evidence.map((item) => ({ endpoint: item.label, data: summarise(item.data, 1200) })),
+        refusals,
+        session: {
+          max_amount_per_tx: session.max_amount_per_tx,
+          max_total_amount: session.max_total_amount,
+          spent_total: session.spent_total,
+        },
+      });
+    } catch (error) {
+      final = {
+        text:
+          "The reasoning layer did not answer for this run, so no written answer is recorded. " +
+          "The purchases and refusals above are complete and checkable; what the agent " +
+          "concluded from them is missing.",
+      };
+      console.error(`warning: the final answer failed: ${String(error)}`);
+    }
 
     const coveredFacts = this.options.requiredFacts.filter((fact) => covered.has(fact));
     return {
@@ -217,6 +276,7 @@ export class Agent {
       session,
       coveredFacts,
       missingFacts: this.options.requiredFacts.filter((fact) => !covered.has(fact)),
+      records,
     };
   }
 
@@ -252,13 +312,16 @@ export class Agent {
       max_total_amount: string | null;
       spent_total: string | null;
     },
-  ): Promise<Decision> {
+  ): Promise<ModelDecision> {
     const model = process.env.SERV_MODEL ?? "gpt-5.4-mini";
     const spent = Number(session.spent_total ?? 0);
     const budget = Number(session.max_total_amount ?? this.options.budgetUsd);
     const remaining = Math.max(0, budget - spent);
     const body = {
       model,
+      // The decision is a small JSON object. Leaving max_tokens to the gateway
+      // lets it compute a value larger than the model's own completion cap.
+      max_tokens: 600,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         {
@@ -273,7 +336,7 @@ export class Agent {
             refusals,
             evidence_held: evidence.map((item) => ({
               endpoint: item.label,
-              data: item.data,
+              data: summarise(item.data),
             })),
             menu: (this.menu?.endpoints ?? []).map((entry) => ({
               id: entry.id,
@@ -332,7 +395,7 @@ export class Agent {
       error: null,
     });
     const content = payload.choices?.[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(content) as Partial<Decision>;
+    const parsed = JSON.parse(content) as Partial<ModelDecision>;
     if (parsed.action !== "buy" && parsed.action !== "answer") {
       throw new Error(`SERV returned an unknown action: ${String(parsed.action)}`);
     }
@@ -342,6 +405,19 @@ export class Agent {
       reason: typeof parsed.reason === "string" ? parsed.reason : "",
     };
   }
+}
+
+/** A bounded view of a merchant payload, for the model to read. */
+export function summarise(data: unknown, limit = 700): string {
+  if (data === null || data === undefined) return "";
+  if (typeof data === "string") return data.slice(0, limit);
+  let text: string;
+  try {
+    text = JSON.stringify(data);
+  } catch {
+    return String(data).slice(0, limit);
+  }
+  return text.length > limit ? `${text.slice(0, limit)}…` : text;
 }
 
 function mergeSession(

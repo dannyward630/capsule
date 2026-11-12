@@ -1,8 +1,8 @@
 /**
  * Runs one task end to end and writes the evidence.
  *
- * The receipts file it produces is the input to the proof page. Every number in
- * it comes from the CLI's own output, never from this script's arithmetic.
+ * The decision log is the artifact: every attempt is appended as it happens, and
+ * the receipts file is derived from that log rather than assembled beside it.
  */
 import { writeFile, mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -11,6 +11,12 @@ import { Kpass } from "../src/kpass.js";
 import { ServClient } from "../src/serv.js";
 import { REPO_ROOT, type Receipts } from "../src/proof.js";
 import { chainByName } from "../src/kite.js";
+import {
+  DecisionLog,
+  HASH_ALGORITHM,
+  substitutions,
+  split,
+} from "../src/log.js";
 
 const TASK =
   process.env.DEMO_TASK ??
@@ -29,11 +35,13 @@ async function main() {
 
   const kpass = new Kpass({ cwd: REPO_ROOT, sessionId: process.env.KPASS_SESSION_ID ?? null });
   const serv = new ServClient();
+  const log = new DecisionLog();
   const agent = new Agent(
     {
       task: TASK,
       requiredFacts: REQUIRED_FACTS,
       budgetUsd: Number(process.env.DEMO_BUDGET ?? "0.02"),
+      log,
     },
     kpass,
     serv,
@@ -48,11 +56,20 @@ async function main() {
 
   const run = await agent.run();
 
+  const records = await log.read();
+  const chainCheck = await log.verifyChain();
+  const { purchases, refusals } = split(records);
+  if (!chainCheck.ok) {
+    throw new Error(
+      `the decision log is broken at record ${chainCheck.brokenAt}: ${chainCheck.reason}`,
+    );
+  }
+
   const receipts: Receipts = {
     generated_at: new Date().toISOString(),
     task: TASK,
     claim:
-      "An agent that spends your money under a limit you signed - and every payment carries proof it never went over.",
+      "Every purchase your agent made, every one it was refused, and the price of each - refusals decided by your Passport, not by the agent.",
     session: {
       session_id: run.session.session_id,
       task_summary: null,
@@ -61,7 +78,8 @@ async function main() {
       assets: null,
     },
     agent: {
-      agent_id: process.env.KPASS_AGENT_ID ?? "agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c",
+      agent_id:
+        process.env.KPASS_AGENT_ID ?? "agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c",
       address: "0x5512caEe289ef639CD3181487F93920C5F544868",
     },
     chain: {
@@ -75,10 +93,18 @@ async function main() {
       name: "Kite service catalog",
       pay_to: seller.address,
     },
+    log: {
+      algorithm: HASH_ALGORITHM,
+      path: path.relative(REPO_ROOT, log.path),
+      records: records.length,
+      head: chainCheck.head,
+      verified: chainCheck.ok,
+    },
+    substitutions: substitutions(records),
     steps: run.steps,
     totals: {
-      payments: run.steps.filter((step) => step.outcome === "paid").length,
-      refusals: run.steps.filter((step) => step.outcome === "refused").length,
+      payments: purchases.length,
+      refusals: refusals.length,
       spent_usd: run.session.spent_total ?? "0",
       session_budget_usd: run.session.max_total_amount ?? "0",
     },
@@ -90,18 +116,23 @@ async function main() {
     `${JSON.stringify(receipts, null, 2)}\n`,
   );
 
-  console.log("\n--- steps ---");
-  for (const step of run.steps) {
-    console.log(
-      `  ${step.n}. ${step.endpoint} $${step.price_usd} -> ${step.outcome.toUpperCase()}${
-        step.error_code ? ` (${step.error_code})` : ""
-      }${step.tx_hash ? ` tx=${step.tx_hash.slice(0, 14)}...` : ""}`,
-    );
+  console.log("\n--- decisions ---");
+  for (const record of records) {
+    if (record.decision.kind === "purchase") {
+      console.log(
+        `  ${record.seq}. paid    $${record.decision.price_usd.padEnd(6)} ${record.decision.service}${record.decision.tx_hash ? `  tx=${record.decision.tx_hash.slice(0, 12)}...` : ""}`,
+      );
+    } else if (record.decision.kind === "refusal") {
+      console.log(
+        `  ${record.seq}. refused $${record.decision.price_usd.padEnd(6)} ${record.decision.service}  (${record.decision.error_code})`,
+      );
+    }
   }
   console.log(
     `\nspent ${receipts.totals.spent_usd} of ${receipts.totals.session_budget_usd} budget, ` +
       `${receipts.totals.payments} paid, ${receipts.totals.refusals} refused`,
   );
+  console.log(`log:   ${records.length} records, ${HASH_ALGORITHM}, head ${chainCheck.head?.slice(0, 14)}...`);
   console.log(`facts covered: ${run.coveredFacts.length}/${REQUIRED_FACTS.length}`);
   if (run.missingFacts.length) {
     console.log(`facts missing: ${run.missingFacts.join(", ")}`);

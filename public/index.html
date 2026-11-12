@@ -3,236 +3,818 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Capsule — an agent that spends under a limit you signed</title>
+    <title>Capsule — your agent's spending record</title>
     <meta
       name="description"
-      content="SERV Reasoning decides what to buy. A Kite Passport session decides whether it is allowed. Every payment carries proof it never went over."
+      content="Every purchase your agent made, every one it was refused, and the price of each. Refusals decided by your Kite Passport session, not by the agent."
     />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0d10'/%3E%3Cpath d='M9 21V11l7 5 7-5v10' stroke='%2334d3c4' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
     <style>
+      /* ------------------------------------------------------------------
+         Capsule's visual system.
+         Cool near-black surfaces, a cool grey scale, and exactly three
+         semantic colours:
+           settled  - money left the owner's wallet
+           refused  - money stayed; the limit held. Deliberately NOT red.
+           verified - checked against the chain
+         Red is reserved for a genuine failure and appears nowhere else.
+         ------------------------------------------------------------------ */
       :root {
-        --ink: #e8e6e1;
-        --ink-dim: #9b968d;
-        --ink-faint: #6b6760;
-        --bg: #0e0e0f;
-        --panel: #17171a;
-        --line: #2a2a2e;
-        --paid: #7fd1a0;
-        --refused: #e5a06a;
-        --accent: #c8b48a;
+        color-scheme: dark;
+        --bg: #0b0d10;
+        --surface: #12151a;
+        --surface-2: #171b21;
+        --line: #232830;
+        --line-soft: #1b1f26;
+        --ink: #e6e9ee;
+        --ink-2: #a7aeb9;
+        --ink-3: #6f7783;
+        --settled: #34d3c4;
+        --settled-ink: #0b0d10;
+        --refused: #e0a55c;
+        --verified: #6fd08c;
+        --fault: #e06c6c;
+        --focus: #6fd0ff;
+        --radius: 10px;
         --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+        --sans: ui-sans-serif, -apple-system, "Segoe UI", Inter, system-ui, sans-serif;
       }
       @media (prefers-color-scheme: light) {
         :root {
-          --ink: #1b1a18;
-          --ink-dim: #5d5950;
-          --ink-faint: #8b857a;
-          --bg: #fbfaf7;
-          --panel: #ffffff;
-          --line: #e3ded3;
-          --paid: #1f7a4d;
-          --refused: #a4591c;
-          --accent: #8a6f3c;
+          color-scheme: light;
+          --bg: #f7f7f4;
+          --surface: #ffffff;
+          --surface-2: #f2f2ee;
+          --line: #dedcd4;
+          --line-soft: #e8e6df;
+          --ink: #16181b;
+          --ink-2: #55595f;
+          --ink-3: #868b93;
+          --settled: #0f8d81;
+          --settled-ink: #ffffff;
+          --refused: #9a6212;
+          --verified: #1f7a44;
+          --fault: #b03a3a;
+          --focus: #1f6feb;
         }
       }
       * { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; }
       body {
         margin: 0;
         background: var(--bg);
         color: var(--ink);
-        font: 16px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Inter, system-ui, sans-serif;
+        font: 15px/1.65 var(--sans);
         -webkit-font-smoothing: antialiased;
       }
-      main { max-width: 880px; margin: 0 auto; padding: 56px 24px 96px; }
-      h1 {
-        font-size: clamp(1.9rem, 4.5vw, 2.9rem);
-        line-height: 1.15;
-        letter-spacing: -0.022em;
-        margin: 0 0 20px;
-        font-weight: 600;
+      a { color: var(--settled); text-underline-offset: 3px; }
+      a:hover { text-decoration-thickness: 2px; }
+      :focus-visible {
+        outline: 2px solid var(--focus);
+        outline-offset: 2px;
+        border-radius: 4px;
       }
-      h1 em { font-style: normal; color: var(--accent); }
-      h2 {
-        font-size: 0.78rem;
+      code, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+      .skip {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        background: var(--surface);
+        padding: 10px 16px;
+        z-index: 20;
+      }
+      .skip:focus { left: 8px; top: 8px; }
+
+      .shell { max-width: 1120px; margin: 0 auto; padding: 0 24px 120px; }
+
+      /* --- header --- */
+      header { padding: 56px 0 8px; }
+      .wordmark {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        font: 600 0.72rem/1 var(--mono);
+        letter-spacing: 0.16em;
         text-transform: uppercase;
-        letter-spacing: 0.14em;
-        color: var(--ink-faint);
-        font-weight: 600;
-        margin: 56px 0 16px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid var(--line);
+        color: var(--ink-3);
+        margin-bottom: 26px;
       }
-      p { margin: 0 0 16px; }
-      .lede { font-size: 1.08rem; color: var(--ink-dim); max-width: 64ch; }
-      .grid {
+      .wordmark svg { width: 20px; height: 20px; }
+      h1 {
+        font-size: clamp(1.85rem, 4.4vw, 2.75rem);
+        line-height: 1.16;
+        letter-spacing: -0.022em;
+        font-weight: 600;
+        margin: 0 0 18px;
+        max-width: 21ch;
+      }
+      h1 .accent { color: var(--settled); }
+      .standfirst {
+        font-size: 1.04rem;
+        color: var(--ink-2);
+        max-width: 62ch;
+        margin: 0 0 12px;
+      }
+      .standfirst strong { color: var(--ink); font-weight: 600; }
+
+      /* --- the session bar --- */
+      .session {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
         gap: 1px;
         background: var(--line);
         border: 1px solid var(--line);
-        margin: 28px 0;
+        border-radius: var(--radius);
+        overflow: hidden;
+        margin: 34px 0 0;
       }
-      .cell { background: var(--panel); padding: 16px 18px; }
-      .cell dt {
-        font: 600 0.68rem/1 ui-monospace, monospace;
-        letter-spacing: 0.1em;
+      .session > div { background: var(--surface); padding: 15px 17px; }
+      .session dt {
+        font: 600 0.66rem/1.3 var(--mono);
+        letter-spacing: 0.11em;
         text-transform: uppercase;
-        color: var(--ink-faint);
-        margin: 0 0 8px;
+        color: var(--ink-3);
+        margin: 0 0 7px;
       }
-      .cell dd {
+      .session dd {
         margin: 0;
-        font: 500 1.35rem/1.25 ui-monospace, monospace;
+        font: 500 1.32rem/1.2 var(--mono);
         font-variant-numeric: tabular-nums;
+        color: var(--ink);
       }
-      .cell dd small { font-size: 0.72rem; color: var(--ink-faint); font-weight: 400; }
-      ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: s; }
-      ol.steps li {
-        counter-increment: s;
-        display: grid;
-        grid-template-columns: 34px 1fr auto;
-        gap: 14px;
-        align-items: baseline;
+      .session dd small {
+        display: block;
+        font: 400 0.72rem/1.4 var(--sans);
+        color: var(--ink-3);
+        margin-top: 3px;
+      }
+      .session dd .unit { color: var(--ink-3); font-size: 0.8em; }
+      .session dd.exhausted { color: var(--refused); }
+
+      .meter {
+        grid-column: 1 / -1;
+        background: var(--surface);
+        padding: 14px 17px 16px;
+      }
+      .meter-track {
+        height: 7px;
+        border-radius: 4px;
+        background: var(--surface-2);
+        border: 1px solid var(--line-soft);
+        overflow: hidden;
+        display: flex;
+      }
+      .meter-fill { height: 100%; background: var(--settled); }
+      .meter-fill.over { background: var(--refused); }
+      .meter-legend {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 8px;
+        font: 0.78rem/1.4 var(--sans);
+        color: var(--ink-3);
+      }
+
+      /* --- section rail --- */
+      .rail {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
         padding: 14px 0;
+        margin: 40px 0 0;
+        background: linear-gradient(var(--bg) 72%, transparent);
+        border-bottom: 1px solid var(--line-soft);
+        scrollbar-width: none;
+      }
+      .rail::-webkit-scrollbar { display: none; }
+      .rail a {
+        flex: 0 0 auto;
+        color: var(--ink-2);
+        text-decoration: none;
+        font: 500 0.83rem/1 var(--sans);
+        padding: 8px 12px;
+        border-radius: 7px;
+        border: 1px solid transparent;
+      }
+      .rail a:hover { color: var(--ink); background: var(--surface); border-color: var(--line); }
+
+      section { margin-top: 54px; scroll-margin-top: 60px; }
+      h2 {
+        font: 600 0.72rem/1 var(--mono);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        margin: 0 0 18px;
+        padding-bottom: 10px;
         border-bottom: 1px solid var(--line);
       }
-      ol.steps li::before {
-        content: counter(s);
-        font: 500 0.78rem/1 ui-monospace, monospace;
-        color: var(--ink-faint);
+      h2 .count { color: var(--ink-3); font-weight: 400; letter-spacing: 0.06em; }
+
+      /* --- the record --- */
+      .record { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-soft); }
+      .record li {
+        display: grid;
+        grid-template-columns: 30px minmax(0, 1fr) auto;
+        gap: 14px;
+        align-items: start;
+        padding: 16px 0;
+        border-bottom: 1px solid var(--line-soft);
       }
-      .step-endpoint { font: 500 0.95rem/1.4 ui-monospace, monospace; }
-      .step-note { color: var(--ink-dim); font-size: 0.88rem; margin-top: 3px; }
-      .tag {
-        font: 600 0.68rem/1 ui-monospace, monospace;
-        letter-spacing: 0.08em;
+      .seq {
+        font: 500 0.76rem/1.7 var(--mono);
+        color: var(--ink-3);
+      }
+      .what { min-width: 0; }
+      .what .target {
+        font: 500 0.94rem/1.45 var(--mono);
+        color: var(--ink);
+        overflow-wrap: anywhere;
+      }
+      .what .target .host { color: var(--ink-3); }
+      .what .why {
+        font-size: 0.87rem;
+        color: var(--ink-2);
+        margin-top: 5px;
+        max-width: 72ch;
+      }
+      .what .why .plain { color: var(--ink); }
+      .what .meta {
+        font: 0.74rem/1.5 var(--mono);
+        color: var(--ink-3);
+        margin-top: 6px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+      }
+      .what .meta a { color: var(--ink-2); }
+      .price {
+        font: 500 0.92rem/1.4 var(--mono);
+        font-variant-numeric: tabular-nums;
+        color: var(--ink-2);
+        white-space: nowrap;
+        text-align: right;
+      }
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font: 600 0.67rem/1 var(--mono);
+        letter-spacing: 0.09em;
         text-transform: uppercase;
-        padding: 5px 9px;
+        padding: 5px 8px;
+        border-radius: 5px;
         border: 1px solid currentColor;
         white-space: nowrap;
       }
-      .tag.paid { color: var(--paid); }
-      .tag.refused { color: var(--refused); }
-      a { color: var(--accent); text-underline-offset: 3px; }
-      code {
-        font: 0.88em/1.5 ui-monospace, monospace;
-        background: var(--panel);
+      .status .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+      .status.settled { color: var(--settled); }
+      .status.refused { color: var(--refused); }
+      .status.verified { color: var(--verified); }
+      .status.fault { color: var(--fault); }
+      .status.neutral { color: var(--ink-3); }
+
+      /* --- substitution: wanted -> bought instead --- */
+      .subs { display: grid; gap: 14px; }
+      .sub {
         border: 1px solid var(--line);
-        padding: 1px 5px;
+        border-radius: var(--radius);
+        background: var(--surface);
+        padding: 17px 19px;
       }
-      .note { color: var(--ink-dim); font-size: 0.92rem; }
-      .empty {
+      .sub-head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 13px;
+      }
+      .sub-head .who {
+        font: 500 0.92rem/1.4 var(--mono);
+        color: var(--ink);
+        overflow-wrap: anywhere;
+      }
+      .swap {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 12px;
+        align-items: stretch;
+      }
+      .swap .side {
+        border: 1px solid var(--line-soft);
+        border-radius: 8px;
+        padding: 12px 13px;
+        background: var(--surface-2);
+        min-width: 0;
+      }
+      .swap .side.wanted { border-left: 2px solid var(--refused); }
+      .swap .side.got { border-left: 2px solid var(--settled); }
+      .swap .side .label {
+        font: 600 0.62rem/1 var(--mono);
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        margin-bottom: 7px;
+      }
+      .swap .side .name {
+        font: 500 0.84rem/1.45 var(--mono);
+        color: var(--ink);
+        overflow-wrap: anywhere;
+      }
+      .swap .side .note { font-size: 0.83rem; color: var(--ink-2); margin-top: 6px; }
+      .swap .arrow {
+        align-self: center;
+        color: var(--ink-3);
+        font-size: 1.1rem;
+        line-height: 1;
+      }
+      .sub .plain {
+        margin-top: 13px;
+        font-size: 0.87rem;
+        color: var(--ink-2);
+        border-top: 1px solid var(--line-soft);
+        padding-top: 11px;
+      }
+      .sub .plain b { color: var(--ink); font-weight: 600; }
+      @media (max-width: 640px) {
+        .swap { grid-template-columns: 1fr; }
+        .swap .arrow { transform: rotate(90deg); justify-self: start; padding-left: 4px; }
+      }
+
+      /* --- verification --- */
+      .verify {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        overflow: hidden;
+      }
+      .verify-head {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+        padding: 16px 19px;
+        border-bottom: 1px solid var(--line-soft);
+        background: var(--surface-2);
+      }
+      .verify-head .headline { font-weight: 600; }
+      .verify-head .spacer { flex: 1 1 auto; }
+      .hashline {
+        font: 0.78rem/1.6 var(--mono);
+        color: var(--ink-2);
+        padding: 13px 19px;
+        border-bottom: 1px solid var(--line-soft);
+        overflow-wrap: anywhere;
+      }
+      .hashline b { color: var(--ink-3); font-weight: 600; }
+      table.checks { width: 100%; border-collapse: collapse; }
+      table.checks th {
+        text-align: left;
+        font: 600 0.63rem/1.3 var(--mono);
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        padding: 11px 19px;
+        border-bottom: 1px solid var(--line-soft);
+        white-space: nowrap;
+      }
+      table.checks td {
+        padding: 12px 19px;
+        border-bottom: 1px solid var(--line-soft);
+        font: 0.83rem/1.5 var(--mono);
+        vertical-align: top;
+      }
+      table.checks tr:last-child td { border-bottom: none; }
+      table.checks td.wrap { font-family: var(--sans); color: var(--ink-2); }
+      @media (max-width: 760px) {
+        table.checks thead { display: none; }
+        table.checks td { display: block; padding: 5px 19px; border-bottom: none; }
+        table.checks tr { display: block; padding: 13px 0; border-bottom: 1px solid var(--line-soft); }
+        table.checks tr td:first-child { padding-top: 0; }
+      }
+
+      /* --- surfaces --- */
+      .surfaces { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: 12px; }
+      .surface {
+        display: block;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        padding: 15px 17px;
+        text-decoration: none;
+        color: inherit;
+        transition: border-color 0.14s ease, background 0.14s ease;
+      }
+      .surface:hover { border-color: var(--settled); background: var(--surface-2); }
+      .surface .k {
+        font: 600 0.63rem/1 var(--mono);
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+        color: var(--ink-3);
+        margin-bottom: 8px;
+      }
+      .surface .v { font: 500 0.92rem/1.4 var(--mono); color: var(--ink); overflow-wrap: anywhere; }
+      .surface .d { font-size: 0.82rem; color: var(--ink-2); margin-top: 6px; }
+
+      /* --- states --- */
+      .state {
         border: 1px dashed var(--line);
-        padding: 28px;
-        color: var(--ink-dim);
-        background: var(--panel);
+        border-radius: var(--radius);
+        background: var(--surface);
+        padding: 26px 22px;
+        color: var(--ink-2);
       }
-      ol.judge { padding-left: 20px; margin: 0 0 16px; }
-      ol.judge li { margin-bottom: 10px; }
+      .state h3 { margin: 0 0 8px; font-size: 1rem; color: var(--ink); }
+      .state p { margin: 0 0 6px; }
+      .state code { color: var(--ink); }
+
+      .caveat {
+        margin-top: 22px;
+        font-size: 0.86rem;
+        color: var(--ink-3);
+        border-left: 2px solid var(--line);
+        padding-left: 13px;
+        max-width: 74ch;
+      }
       footer {
-        margin-top: 64px;
+        margin-top: 72px;
         padding-top: 20px;
         border-top: 1px solid var(--line);
-        color: var(--ink-faint);
-        font-size: 0.85rem;
+        color: var(--ink-3);
+        font-size: 0.84rem;
+        display: flex;
+        gap: 8px 22px;
+        flex-wrap: wrap;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * { animation: none !important; transition: none !important; }
       }
     </style>
   </head>
   <body>
-    <main>
-      <h1>An agent that spends your money under a limit <em>you signed</em> — and every payment carries proof it never went over.</h1>
-      <p class="lede">
-        SERV Reasoning decides <em>what</em> to buy and <em>when to stop</em>. A Kite Passport
-        session, approved with a passkey and held outside this program, decides whether the
-        purchase is allowed. Nothing in this repository can raise that limit.
-      </p>
+    <a class="skip" href="#record">Skip to the record</a>
+    <div class="shell">
+      <header>
+        <span class="wordmark">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="var(--surface-2)" />
+            <path d="M9 21V11l7 5 7-5v10" stroke="var(--settled)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Capsule
+        </span>
+        <h1>
+          Every purchase your agent made, every one it was
+          <span class="accent">refused</span>, and the price of each.
+        </h1>
+        <p class="standfirst">
+          The refusals were decided by <strong>your Kite Passport session</strong>, not by the
+          agent. The agent proposes; the limit disposes; the record keeps both.
+        </p>
 
-      <h2>The numbers</h2>
-      <dl class="grid" id="totals">
-        <div class="cell"><dt>Budget signed</dt><dd id="budget">—</dd></div>
-        <div class="cell"><dt>Spent</dt><dd id="spent">—</dd></div>
-        <div class="cell"><dt>Payments settled</dt><dd id="paid">—</dd></div>
-        <div class="cell"><dt>Purchases refused</dt><dd id="refused">—</dd></div>
-      </dl>
+        <dl class="session" id="session">
+          <div>
+            <dt>Budget you signed</dt>
+            <dd><span class="loading">—</span></dd>
+          </div>
+          <div>
+            <dt>Cap per call</dt>
+            <dd><span class="loading">—</span></dd>
+          </div>
+          <div>
+            <dt>Spent</dt>
+            <dd><span class="loading">—</span></dd>
+          </div>
+          <div>
+            <dt>Left</dt>
+            <dd><span class="loading">—</span></dd>
+          </div>
+          <div class="meter" hidden>
+            <div class="meter-track"><div class="meter-fill" style="width: 0%"></div></div>
+            <div class="meter-legend">
+              <span class="legend-left">—</span>
+              <span class="legend-right">—</span>
+            </div>
+          </div>
+        </dl>
+      </header>
 
-      <h2>What the agent tried to buy</h2>
-      <div id="steps"><div class="empty">Loading the recorded run…</div></div>
+      <nav class="rail" aria-label="Sections">
+        <a href="#record">The record</a>
+        <a href="#substitutions">What it bought instead</a>
+        <a href="#verification">Verification</a>
+        <a href="#surfaces">Surfaces</a>
+      </nav>
 
-      <h2>Judge it in 60 seconds</h2>
-      <ol class="judge">
-        <li>The run above shows a paid purchase, then a purchase the session refused, then another it refused for a different reason.</li>
-        <li>
-          Open <a href="/proof.json">/proof.json</a>. Every payment there is re-read from the
-          Kite chain at request time and compared against the receipt, so the page reports what
-          the chain says, not what this repository claims.
-        </li>
-        <li>
-          Each paid step carries a transaction hash. Open it on
-          <a href="https://kitescan.ai/" rel="noreferrer">KiteScan</a> and you will see the USDC
-          transfer to the service's address.
-        </li>
-      </ol>
-      <p class="note">
-        The refusal is the point. An agent that limits itself is keeping a promise. An agent
-        whose limit is a signed session on someone else's chain is obeying something it cannot
-        edit.
-      </p>
+      <section id="record" aria-labelledby="record-h">
+        <h2 id="record-h">The record <span class="count" id="record-count"></span></h2>
+        <div id="record-body">
+          <div class="state"><p>Loading the recorded run…</p></div>
+        </div>
+      </section>
 
-      <h2>Where the parts live</h2>
-      <dl class="grid">
-        <div class="cell"><dt>Reasoning</dt><dd style="font-size: 1rem">SERV Reasoning</dd></div>
-        <div class="cell"><dt>Money</dt><dd style="font-size: 1rem">Kite Passport</dd></div>
-        <div class="cell"><dt>Chain</dt><dd style="font-size: 1rem">Kite mainnet</dd></div>
-        <div class="cell"><dt>Protocol</dt><dd style="font-size: 1rem">x402 v2, exact</dd></div>
-      </dl>
+      <section id="substitutions" aria-labelledby="subs-h">
+        <h2 id="subs-h">What it bought instead <span class="count" id="subs-count"></span></h2>
+        <div id="subs-body">
+          <div class="state"><p>Loading the recorded run…</p></div>
+        </div>
+      </section>
+
+      <section id="verification" aria-labelledby="verify-h">
+        <h2 id="verify-h">Verification</h2>
+        <div id="verify-body">
+          <div class="state"><p>Loading the recorded run…</p></div>
+        </div>
+      </section>
+
+      <section id="surfaces" aria-labelledby="surfaces-h">
+        <h2 id="surfaces-h">Surfaces</h2>
+        <div class="surfaces">
+          <a class="surface" href="/proof.json">
+            <div class="k">Machine-readable proof</div>
+            <div class="v">/proof.json</div>
+            <div class="d">The same facts as JSON, no account, no session.</div>
+          </a>
+          <a class="surface" href="https://github.com/unifyWeb3/capsule">
+            <div class="k">Repository</div>
+            <div class="v">unifyWeb3/capsule</div>
+            <div class="d">The agent, the decision log and the verifier.</div>
+          </a>
+          <a class="surface" href="https://docs.gokite.ai/passport">
+            <div class="k">The limit itself</div>
+            <div class="v">Kite Agent Passport</div>
+            <div class="d">The session that refuses the purchase, outside this program.</div>
+          </a>
+        </div>
+      </section>
 
       <footer>
-        Built for the SERV Hackathon, Edition 02 — Kite track. Source and receipts are in the
-        repository; every figure on this page is read from
-        <a href="/proof.json">/proof.json</a>, which verifies against the chain.
+        <span>Built for the SERV Hackathon, Edition 02 — Kite track.</span>
+        <span>SERV Reasoning decides. The Passport disposes. The record keeps both.</span>
       </footer>
-    </main>
+    </div>
 
     <script>
+      const $ = (id) => document.getElementById(id);
       const money = (value) => (value === null || value === undefined ? "—" : "$" + value);
-      const short = (hash) => (hash ? hash.slice(0, 10) + "…" : "");
+      const escape = (value) =>
+        String(value ?? "").replace(/[&<>"']/g, (c) =>
+          ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+        );
+
+      /* The Passport's error codes, in plain English. The judge should never
+         have to know what "session_rule_exceeded" means. */
+      const PLAIN = {
+        session_rule_exceeded:
+          "over the cap you signed for a single purchase, so the Passport refused to release the money",
+        session_total_exceeded:
+          "would have taken the session past its total budget, so the Passport refused to release the money",
+        separate_session_used_up:
+          "the session had nothing left to spend, so nothing was sent",
+        payment_target_forbidden:
+          "the merchant is not on the Passport's allowlist, so the Passport would not pay it",
+        session_endpoint_forbidden:
+          "outside the endpoints the session allows",
+        session_asset_forbidden:
+          "the merchant wanted an asset the session does not allow",
+        insufficient_balance: "the wallet did not hold enough",
+        no_payment_requirement: "the merchant returned no payment request for that call",
+        merchant_rejected: "the merchant refused the request",
+      };
+      const plain = (code) =>
+        PLAIN[code] || "the Passport refused this purchase";
+      const host = (url) => {
+        try {
+          return new URL(url).host;
+        } catch {
+          return "";
+        }
+      };
+      const path = (url) => {
+        try {
+          return new URL(url).pathname;
+        } catch {
+          return url;
+        }
+      };
+
+      function statusChip(kind, label) {
+        const glyph = kind === "settled" ? "●" : kind === "refused" ? "▲" : kind === "verified" ? "✓" : "○";
+        return `<span class="status ${kind}"><span class="dot" aria-hidden="true"></span>${glyph} ${escape(label)}</span>`;
+      }
+
+      function renderSession(proof) {
+        const budget = Number(proof.totals.session_budget_usd);
+        const spent = Number(proof.totals.spent_usd);
+        const left = Math.max(0, budget - spent);
+        const pct = budget > 0 ? Math.min(100, (spent / budget) * 100) : 0;
+        const perTx = proof.session.max_amount_per_tx;
+        $("session").querySelectorAll("dd").forEach((node, index) => {
+          const values = [
+            [money(proof.totals.session_budget_usd), "the session's total budget"],
+            [money(perTx), "the ceiling on any one call"],
+            [money(proof.totals.spent_usd), "across " + proof.totals.payments + " settled payments"],
+            [money(left.toFixed(4)), "still available"],
+          ];
+          const value = values[index];
+          if (!value) return;
+          node.innerHTML =
+            escape(value[0]) + (value[1] ? ` <small>${escape(value[1])}</small>` : "");
+          if (index === 3 && left <= 0) node.classList.add("exhausted");
+        });
+        const meter = $("session").querySelector(".meter");
+        meter.hidden = false;
+        const fill = meter.querySelector(".meter-fill");
+        fill.style.width = pct.toFixed(1) + "%";
+        fill.classList.toggle("over", spent >= budget);
+        meter.querySelector(".legend-left").textContent =
+          spent.toFixed(4) + " USDC spent";
+        meter.querySelector(".legend-right").textContent =
+          budget.toFixed(4) + " USDC signed";
+      }
+
+      function renderRecord(proof) {
+        const rows = proof.steps
+          .map((step) => {
+            const settled = step.outcome === "paid";
+            const check = (proof.chain_checks || []).find(
+              (c) => c.tx_hash && c.tx_hash === step.tx_hash
+            );
+            const reason =
+              step.error_message ||
+              (settled ? "the session allowed it" : "the session refused it");
+            const meta = [];
+            if (settled && step.tx_hash) {
+              const confirmed = check && check.found ? check.confirmations : null;
+              meta.push(
+                `<a href="${escape(proof.chain.explorer)}/tx/${escape(step.tx_hash)}" target="_blank" rel="noreferrer">tx ${escape(step.tx_hash.slice(0, 12))}…</a>`
+              );
+              if (confirmed !== null && confirmed !== undefined) {
+                meta.push(`${confirmed} confirmations`);
+              }
+              if (check && check.recipient) {
+                meta.push(`to ${escape(check.recipient.slice(0, 10))}…`);
+              }
+            }
+            if (!settled && step.error_code) {
+              meta.push(escape(step.error_code));
+            }
+            return `<li>
+              <span class="seq">${step.n}</span>
+              <div class="what">
+                <div class="target">${escape(path(step.url))} <span class="host">· ${escape(host(step.url))}</span></div>
+                <div class="why"><span class="plain">${escape(reason)}</span></div>
+                ${
+                  meta.length
+                    ? `<div class="meta">${meta.map((m) => `<span>${m}</span>`).join("")}</div>`
+                    : ""
+                }
+              </div>
+              <div class="price">
+                ${settled ? statusChip("settled", "settled") : statusChip("refused", "refused")}
+                <div style="margin-top:7px">${escape(money(step.price_usd))}</div>
+              </div>
+            </li>`;
+          })
+          .join("");
+        $("record-count").textContent =
+          proof.steps.length + " attempts";
+        $("record-body").innerHTML = `<ol class="record">${rows}</ol>`;
+        if (proof.steps.length === 0) {
+          $("record-body").innerHTML =
+            '<div class="state"><h3>No attempts recorded</h3><p>The run produced no purchase and no refusal. That is a different failure from "nothing spent".</p></div>';
+        }
+      }
+
+      function renderSubstitutions(proof) {
+        const rows = proof.substitutions || [];
+        $("subs-count").textContent = rows.length ? rows.length + " refusals" : "";
+        if (!rows.length) {
+          $("subs-body").innerHTML =
+            '<div class="state"><h3>Nothing was refused</h3><p>Every purchase the agent proposed was allowed by the session. The record below shows only the settlements.</p></div>';
+          return;
+        }
+        $("subs-body").innerHTML =
+          '<div class="subs">' +
+          rows
+            .map((row) => {
+              const instead = row.instead_of;
+              const left = `<div class="side wanted">
+                <div class="label">Wanted</div>
+                <div class="name">${escape(row.wanted)}</div>
+                <div class="note">${escape(money(row.wanted_price_usd))} — ${escape(plain(row.error_code))}.</div>
+              </div>`;
+              const right = instead
+                ? `<div class="side got">
+                    <div class="label">Bought instead</div>
+                    <div class="name">${escape(instead.service)}</div>
+                    <div class="note">${escape(money(instead.price_usd))}${
+                      row.instead_reason ? " — " + escape(row.instead_reason) : ""
+                    }</div>
+                  </div>`
+                : `<div class="side">
+                    <div class="label">Bought instead</div>
+                    <div class="name">nothing — the budget was gone</div>
+                    <div class="note">The session was exhausted, so the run ended with the gap named.</div>
+                  </div>`;
+              return `<div class="sub">
+                <div class="sub-head">
+                  <span class="who">attempt ${row.refusal_seq}</span>
+                  ${statusChip("refused", "refused")}
+                  <span class="who" style="color:var(--ink-3);font-weight:400">${escape(
+                    plain(row.error_code)
+                  )}</span>
+                </div>
+                <div class="swap">${left}<span class="arrow" aria-hidden="true">→</span>${right}</div>
+                ${
+                  row.reason
+                    ? `<div class="plain">The agent's own reason for wanting it: <b>${escape(row.reason)}</b></div>`
+                    : ""
+                }
+              </div>`;
+            })
+            .join("") +
+          "</div>";
+      }
+
+      function renderVerification(proof) {
+        const checks = proof.chain_checks || [];
+        const ok = proof.all_payments_verified_on_chain === true;
+        const chainOk = proof.log && proof.log.verified === true;
+        const head = proof.log ? proof.log.head : null;
+        const rows = checks
+          .map(
+            (c) => `<tr>
+              <td>${escape(c.endpoint || "")}</td>
+              <td><a href="${escape(proof.chain.explorer)}/tx/${escape(c.tx_hash)}" target="_blank" rel="noreferrer">${escape(
+                c.tx_hash.slice(0, 12)
+              )}…</a></td>
+              <td>${c.block_number ?? "—"}</td>
+              <td>${c.confirmations ?? "—"}</td>
+              <td class="wrap">${escape(c.recipient || "—")}</td>
+              <td>${statusChip(c.matches_receipt === true ? "verified" : "fault", c.matches_receipt === true ? "confirmed" : "unconfirmed")}</td>
+            </tr>`
+          )
+          .join("");
+        $("verify-body").innerHTML = `<div class="verify">
+          <div class="verify-head">
+            ${statusChip(ok ? "verified" : "fault", ok ? "every payment confirmed on chain" : "a payment is unconfirmed")}
+            <span class="headline">${escape(proof.chain.symbol)} on ${escape(
+              proof.chain.network
+            )}</span>
+            <span class="spacer"></span>
+            <span style="color:var(--ink-3);font-size:0.83rem">${
+              checks.length ? checks.length + " payments re-read at request time" : "no payments"
+            }</span>
+          </div>
+          <div class="hashline">
+            <b>Decision log</b> ${escape(proof.log ? proof.log.algorithm : "")} ·
+            ${escape(proof.log ? String(proof.log.records) : "0")} records ·
+            ${chainOk ? "chain intact" : "chain broken"}<br />
+            <b>head</b> ${escape(head || "—")}
+          </div>
+          ${
+            checks.length
+              ? `<table class="checks">
+                  <thead><tr><th>Purchase</th><th>Transaction</th><th>Block</th><th>Confirms</th><th>Recipient</th><th>On chain</th></tr></thead>
+                  <tbody>${rows}</tbody>
+                </table>`
+              : ""
+          }
+        </div>
+        <p class="caveat">
+          These rows are re-read from the chain when you load this page, not served from a
+          cached copy. Editing an earlier decision in the log breaks every link after it, and
+          the verifier says which record broke.
+        </p>`;
+      }
 
       fetch("/proof.json")
         .then((response) => response.json())
         .then((proof) => {
           if (proof.status !== "verified") {
-            document.getElementById("steps").innerHTML =
-              '<div class="empty">No run has been recorded yet.</div>';
+            $("record-body").innerHTML =
+              '<div class="state"><h3>No run recorded yet</h3><p>The receipts file is written by <code>npm run demo</code>. Until then there is nothing to show — which is not the same as a run that spent nothing.</p></div>';
+            $("subs-body").innerHTML =
+              '<div class="state"><p>No run recorded yet.</p></div>';
+            $("verify-body").innerHTML =
+              '<div class="state"><p>No run recorded yet.</p></div>';
             return;
           }
-          document.getElementById("budget").innerHTML = money(proof.totals.session_budget_usd) +
-            ' <small>session total</small>';
-          document.getElementById("spent").innerHTML = money(proof.totals.spent_usd) +
-            ' <small>of budget</small>';
-          document.getElementById("paid").innerHTML = proof.totals.payments +
-            ' <small>settled on chain</small>';
-          document.getElementById("refused").innerHTML = proof.totals.refusals +
-            ' <small>by the session</small>';
-
-          const rows = proof.steps
-            .map((step) => {
-              const paid = step.outcome === "paid";
-              const note = paid
-                ? "paid" + (step.tx_hash ? " · tx " + short(step.tx_hash) : "")
-                : (step.error_code || "refused") +
-                  (step.error_message ? " · " + step.error_message : "");
-              return (
-                '<li><div><div class="step-endpoint">' + step.endpoint + '</div>' +
-                '<div class="step-note">' + note + "</div></div>" +
-                '<span class="tag ' + (paid ? "paid" : "refused") + '">' +
-                (paid ? "paid" : "refused") + " · $" + step.price_usd + "</span></li>"
-              );
-            })
-            .join("");
-          document.getElementById("steps").innerHTML = '<ol class="steps">' + rows + "</ol>";
+          renderSession(proof);
+          renderRecord(proof);
+          renderSubstitutions(proof);
+          renderVerification(proof);
         })
-        .catch(() => {
-          document.getElementById("steps").innerHTML =
-            '<div class="empty">The proof endpoint did not answer.</div>';
+        .catch((error) => {
+          $("record-body").innerHTML =
+            '<div class="state"><h3>The proof endpoint did not answer</h3><p>' +
+            escape(String(error)) +
+            "</p><p>Try <code>/proof.json</code> directly.</p></div>";
+          $("subs-body").innerHTML = "";
+          $("verify-body").innerHTML = "";
         });
     </script>
   </body>

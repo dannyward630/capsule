@@ -140,6 +140,8 @@ export function createApp(config: AppConfig = readConfig()) {  const app = expre
       agent: receipts.agent,
       chain: receipts.chain,
       seller: receipts.seller,
+      log: receipts.log,
+      substitutions: receipts.substitutions,
       totals: receipts.totals,
       steps: receipts.steps,
       chain_checks: checks,

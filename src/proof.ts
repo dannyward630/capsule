@@ -54,6 +54,24 @@ export interface Receipts {
     explorer: string;
   };
   seller: { name: string; pay_to: string };
+  /** The hash chain over the decisions, and its head. */
+  log: {
+    algorithm: string;
+    path: string;
+    records: number;
+    head: string | null;
+    verified: boolean;
+  };
+  /** For every refusal, what the agent bought instead. */
+  substitutions: Array<{
+    refusal_seq: number;
+    wanted: string;
+    wanted_price_usd: string;
+    reason: string;
+    error_code: string;
+    instead_of: { seq: number; service: string; price_usd: string } | null;
+    instead_reason: string | null;
+  }>;
   steps: ReceiptStep[];
   totals: {
     payments: number;
