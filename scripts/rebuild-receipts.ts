@@ -38,7 +38,7 @@ async function main() {
     publishedKey = null;
   }
 
-  const { receipts, session } = await buildArtifact({
+  const { receipts, session, records: logRecords } = await buildArtifact({
     logPath: path.join(REPO_ROOT, "docs", "decision-log.jsonl"),
     facts,
     menu,
@@ -115,6 +115,12 @@ async function main() {
   await writeFile(
     path.join(REPO_ROOT, "docs", "receipts.json"),
     `${JSON.stringify(receipts, null, 2)}\n`,
+  );
+  // The mirror the deployment imports. The canonical log stays JSONL, because it
+  // is append-only; the mirror is generated from it so the two cannot drift.
+  await writeFile(
+    path.join(REPO_ROOT, "docs", "decision-log.json"),
+    `${JSON.stringify(logRecords, null, 2)}\n`,
   );
   console.log(
     `docs/receipts.json rebuilt from the log: ${receipts.log.records} records, head ${receipts.log.head?.slice(0, 14)}...` +

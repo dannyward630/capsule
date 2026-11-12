@@ -1,0 +1,15 @@
+# Files that must never reach the deployment.
+#
+# The CLI uploads the working tree, so anything gitignored is still uploaded
+# unless it is listed here as well. These are the project's private keys and
+# the account session: the agent's runtime key, the seller's key, the Passport
+# login and the SERV API key.
+.env
+.env.local
+.env.*
+!.env.example
+.kite-passport/
+.secrets/
+*.key
+audit.md
+audit.md:Zone.Identifier

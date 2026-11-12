@@ -5,7 +5,7 @@
  * settles real USDC. The proof endpoint re-reads the chain rather than
  * repeating what the README says about it.
  */
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import express, { type Request, type Response } from "express";
 import { paymentMiddleware } from "@x402/express";
@@ -14,6 +14,9 @@ import { HTTPFacilitatorClient, x402ResourceServer, type RoutesConfig } from "@x
 import { FACILITATOR_URL, chainMoneyParser } from "./kite.js";
 import { DEFAULT_CHAIN_ID, chainByName, type SettlementChain } from "./chains.js";
 import { CATALOG } from "./catalog.js";
+import LOG_RECORDS from "../docs/decision-log.json" with { type: "json" };
+import { UnsafeUrlError } from "./net.js";
+import { verifyPublishedLog } from "./verify-log.js";
 import { sellerRouter } from "./seller.js";
 import {
   ChainReader,
@@ -139,13 +142,26 @@ export function createApp(config: AppConfig = readConfig()) {
     new ExactEvmScheme().registerMoneyParser(chainMoneyParser(config.chain)),
   );
 
-  app.get("/healthz", (_request, response) => {
+  app.get("/healthz", async (_request, response) => {
+    // The deployment's own view of what it can read. If a file this app needs
+    // is missing from the bundle, the health check says so instead of the page
+    // quietly rendering nothing.
+    const inventory: Record<string, string[]> = {};
+    for (const folder of ["docs", "public", "web"]) {
+      try {
+        inventory[folder] = await readdir(path.join(REPO_ROOT, folder));
+      } catch {
+        inventory[folder] = ["(not in the bundle)"];
+      }
+    }
     response.json({
       ok: true,
       service: "Scout",
       network: config.chain.network,
       asset: config.chain.assetSymbol,
       pay_to: config.payTo,
+      repo_root: REPO_ROOT,
+      bundle: inventory,
     });
   });
 
@@ -196,6 +212,73 @@ export function createApp(config: AppConfig = readConfig()) {
     response.redirect("/");
   });
 
+  /**
+   * The page.
+   *
+   * The deployment serves public/ from the edge, so the document itself is
+   * fetched from there rather than shipped inside the function bundle. The
+   * query string is carried across, because "?log=..." is how a reader asks
+   * for somebody else's record.
+   */
+  app.get("/", (request, response) => {
+    const query = request.originalUrl.includes("?")
+      ? `?${request.originalUrl.split("?")[1]}`
+      : "";
+    response.redirect(`/index.html${query}`);
+  });
+
+  /**
+   * Our own decision log, published.
+   *
+   * It is here so the third-party path has a real example to point at:
+   * /verify?log=https://capsule-phi-blond.vercel.app/decision-log.jsonl
+   */
+  app.get("/decision-log.jsonl", (_request, response) => {
+    if (!LOG_RECORDS.length) {
+      return response.status(404).json({ error: "no_log" });
+    }
+    response.set("Content-Type", "application/x-ndjson; charset=utf-8");
+    response.set("Cache-Control", "public, max-age=60");
+    return response.send(
+      LOG_RECORDS.map((record) => JSON.stringify(record)).join("\n") + "\n",
+    );
+  });
+
+  /**
+   * The third-party path.
+   *
+   * An agent owner publishes their decision log anywhere and hands this link
+   * to whoever needs to see it. We fetch the log, check its hash chain, and
+   * check every payment against the chain, then answer. The owner keeps their
+   * data: nothing is stored here.
+   */
+  app.get("/verify", async (request: Request, response: Response) => {
+    const logUrl = String(request.query.log ?? "").trim();
+    if (!logUrl) {
+      return response.status(400).json({
+        error: "missing_log",
+        message:
+          "Give the URL of a decision log: /verify?log=https://example.com/decision-log.jsonl",
+      });
+    }
+    const budget = Number(request.query.budget ?? 0) || undefined;
+    try {
+      const proof = await verifyPublishedLog(logUrl, { budgetUsd: budget });
+      // A short-lived cache: the chain check for a mined transaction does not
+      // change, and this endpoint makes network calls.
+      response.set("Cache-Control", "public, max-age=30, stale-while-revalidate=300");
+      return response.json(proof);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const unsafe = error instanceof UnsafeUrlError;
+      response.set("Cache-Control", "no-store");
+      return response.status(unsafe ? 400 : 422).json({
+        error: unsafe ? "unsafe_url" : "cannot_verify",
+        message,
+      });
+    }
+  });
+
   app.use(express.static(path.join(REPO_ROOT, "public")));
 
   return app;
@@ -203,7 +286,7 @@ export function createApp(config: AppConfig = readConfig()) {
 
 /**
  * The Express app as Vercel finds it: a default export, so one function
- * handles every route.
+ * handles every route. The deployment's entry point is this file.
  */
 const app = createApp();
 
