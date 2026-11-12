@@ -176,7 +176,11 @@ export class Agent {
           reason: decision.reason,
           fact: factToCover,
         };
-        await this.options.log.append(purchase);
+        await this.options.log.append(purchase, {
+          id: session.session_id,
+          max_amount_per_tx: session.max_amount_per_tx,
+          max_total_amount: session.max_total_amount,
+        });
         evidence.push({
           id: entry.id,
           label: `${entry.service} ${entry.path}`,
@@ -206,7 +210,11 @@ export class Agent {
           reason: decision.reason,
           fact: factToCover,
         };
-        await this.options.log.append(refusal);
+        await this.options.log.append(refusal, {
+          id: session.session_id,
+          max_amount_per_tx: session.max_amount_per_tx,
+          max_total_amount: session.max_total_amount,
+        });
         refusals.push({
           endpoint: `${entry.service} ${entry.path} ($${entry.price_usd})`,
           error_code: result.error_code ?? "unknown",

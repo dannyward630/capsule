@@ -92,27 +92,60 @@ async function main() {
     console.error(`warning: the attestation could not be signed: ${String(error)}`);
   }
 
-  // The task is part of the artifact; a rebuild must not blank it.
+  // The task and the session are part of the artifact; a rebuild must not
+  // blank them or silently bind them to a different session.
   let existingTask = "";
+  let previousSession:
+    | { session_id?: string | null; max_amount_per_tx?: string | null; max_total_amount?: string | null }
+    | undefined;
   try {
     const previous = JSON.parse(
       await readFile(path.join(REPO_ROOT, "docs", "receipts.json"), "utf8"),
-    ) as { task?: string };
+    ) as {
+      task?: string;
+      session?: {
+        session_id?: string | null;
+        max_amount_per_tx?: string | null;
+        max_total_amount?: string | null;
+      };
+    };
     existingTask = previous.task ?? "";
+    previousSession = previous.session;
   } catch {
     existingTask = "";
   }
+  const logSession = records.find((record) => record.session)?.session;
+
+  // The contrast run is merged in at build time, so the running app reads one
+  // file and the deployment does not depend on a second path being uploaded.
+  let contrast: Receipts | undefined;
+  try {
+    contrast = JSON.parse(
+      await readFile(
+        path.join(REPO_ROOT, "docs", "runs", "contrast", "receipts.json"),
+        "utf8",
+      ),
+    ) as Receipts;
+  } catch {
+    contrast = undefined;
+  }
 
   const receipts: Receipts = {
+    ...(contrast ? { contrast } : {}),
     generated_at: records[records.length - 1]!.at,
     task: process.env.DEMO_TASK ?? existingTask,
     claim:
       "Every purchase your agent made, every one it was refused, and the price of each - refusals decided by your Passport, not by the agent.",
     session: {
-      session_id: session?.session_id ?? null,
+      // The session that produced the log. A log written now carries it; an
+      // older one does not, so the previous receipts are the fallback. The
+      // *current* session is never used: it may be a different one.
+      session_id: logSession?.id ?? previousSession?.session_id ?? null,
       task_summary: null,
-      max_amount_per_tx: session?.max_amount_per_tx ?? null,
-      max_total_amount: session?.max_total_amount ?? null,
+      max_amount_per_tx:
+        logSession?.max_amount_per_tx ?? previousSession?.max_amount_per_tx ?? null,
+      max_total_amount:
+        logSession?.max_total_amount ?? previousSession?.max_total_amount ?? null,
       assets: null,
     },
     payer_address: await kpass.walletAddress(
@@ -152,7 +185,11 @@ async function main() {
       payments: purchases.length,
       refusals: refusals.length,
       spent_usd: spent.toFixed(4),
-      session_budget_usd: session?.max_total_amount ?? "0",
+      session_budget_usd:
+        logSession?.max_total_amount ??
+        previousSession?.max_total_amount ??
+        session?.max_total_amount ??
+        "0",
     },
   };
 

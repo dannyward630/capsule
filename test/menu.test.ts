@@ -53,7 +53,11 @@ test("the code shortlists by relevance, never by affordability", () => {
   assert.equal(trend[0]!.price_usd, "0.05");
   const price = relevantTo(MENU, "current ETH price and 24h change");
   assert.equal(price[0]!.id, "e01");
-  assert.equal(relevantTo(MENU, "a fact no endpoint covers").length, 0);
+  // A fact no endpoint claims still gets a menu, so the model can try for
+  // partial coverage rather than being told there is nothing.
+  const fallback = relevantTo(MENU, "a fact no endpoint covers");
+  assert.equal(fallback.length, 2);
+  assert.equal(fallback[0]!.id, "e01");
 });
 
 test("the matcher finds the endpoint that covers a fact", () => {

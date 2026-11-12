@@ -55,12 +55,20 @@ export type Decision =
       message: string;
     };
 
+export interface LogSession {
+  id: string | null;
+  max_amount_per_tx: string | null;
+  max_total_amount: string | null;
+}
+
 export interface LogRecord {
   /** Monotonic index in the chain, starting at 0. */
   seq: number;
   /** ISO-8601 UTC timestamp. */
   at: string;
   decision: Decision;
+  /** The session in force when this decision was made. */
+  session?: LogSession;
   /** Hash of this record's payload. */
   hash: string;
   /** Hash of the previous record. `GENESIS` for the first. */
@@ -87,8 +95,19 @@ export class DecisionLog {
   }
 
   /** Canonical payload for a record, before hashing. Stable key order. */
-  private payload(seq: number, decision: Decision, prev: string, at: string): string {
-    return JSON.stringify({ seq, at, decision, prev });
+  private payload(
+    seq: number,
+    decision: Decision,
+    prev: string,
+    at: string,
+    session?: LogSession,
+  ): string {
+    // The session is added to the payload only when a record carries one, so
+    // a log written before this field existed still verifies against its own
+    // hashes.
+    return JSON.stringify(
+      session ? { seq, at, decision, prev, session } : { seq, at, decision, prev },
+    );
   }
 
   async read(): Promise<LogRecord[]> {
@@ -111,13 +130,13 @@ export class DecisionLog {
   }
 
   /** Append one decision and return the record that was written. */
-  async append(decision: Decision): Promise<LogRecord> {
+  async append(decision: Decision, session?: LogSession): Promise<LogRecord> {
     const records = await this.read();
     const prev = records.at(-1)?.hash ?? GENESIS;
     const seq = records.length;
     const at = this.now().toISOString();
-    const hash = keccak256(toHex(this.payload(seq, decision, prev, at)));
-    const record: LogRecord = { seq, at, decision, hash, prev };
+    const hash = keccak256(toHex(this.payload(seq, decision, prev, at, session)));
+    const record: LogRecord = { seq, at, decision, session, hash, prev };
     await mkdir(dirname(this.path), { recursive: true });
     await appendFile(this.path, `${JSON.stringify(record)}\n`, "utf8");
     return record;
@@ -136,8 +155,17 @@ export class DecisionLog {
     for (let index = 0; index < records.length; index += 1) {
       const record = records[index]!;
       const seq = index;
-      const hash = keccak256(toHex(this.payload(seq, record.decision, prev, record.at)));
-      const next: LogRecord = { seq, at: record.at, decision: record.decision, hash, prev };
+      const hash = keccak256(
+        toHex(this.payload(seq, record.decision, prev, record.at, record.session)),
+      );
+      const next: LogRecord = {
+        seq,
+        at: record.at,
+        decision: record.decision,
+        session: record.session,
+        hash,
+        prev,
+      };
       rebuilt.push(next);
       prev = hash;
     }
@@ -160,7 +188,7 @@ export class DecisionLog {
     let prev = GENESIS;
     for (const record of records) {
       const expected = keccak256(
-        toHex(this.payload(record.seq, record.decision, prev, record.at)),
+        toHex(this.payload(record.seq, record.decision, prev, record.at, record.session)),
       );
       if (record.prev !== prev) {
         return {

@@ -82,18 +82,6 @@ export function paidRoutes(config: AppConfig): RoutesConfig {
   return routes;
 }
 
-async function readContrast(): Promise<Receipts | null> {
-  try {
-    return JSON.parse(
-      await readFile(
-        path.join(REPO_ROOT, "docs", "runs", "contrast", "receipts.json"),
-        "utf8",
-      ),
-    ) as Receipts;
-  } catch {
-    return null;
-  }
-}
 
 export function createApp(config: AppConfig = readConfig()) {  const app = express();
   app.disable("x-powered-by");
@@ -136,7 +124,7 @@ export function createApp(config: AppConfig = readConfig()) {  const app = expre
           "No demo run has been recorded yet. The receipts file is written by `npm run demo`.",
       });
     }
-    const contrast = await readContrast();
+    const contrast = receipts.contrast ?? null;
     const chain = chainFor(receipts.chain.network);
     const checks = await Promise.all(
       receipts.steps

@@ -63,7 +63,7 @@ The refusals were not free attempts — they were evidence the agent wanted and 
 | main risk factors | **not attempted** — the budget was gone |
 
 **The limit cost $0.051 of evidence against a
-$0.0025 budget — 20.4× the whole
+$0.1 budget — 0.51× the whole
 budget.** The agent never got to try main risk factors.
 
 ### The same task, a different limit

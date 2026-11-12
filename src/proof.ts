@@ -35,6 +35,8 @@ export interface ReceiptStep {
 }
 
 export interface Receipts {
+  /** The same task under a different limit, recorded the same way. */
+  contrast?: Receipts;
   generated_at: string;
   task: string;
   claim: string;
