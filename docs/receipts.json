@@ -1,144 +1,4 @@
 {
-  "contrast": {
-    "generated_at": "2026-11-12T09:50:36.382Z",
-    "task": "Give me a cautious assessment of ETH: has it trended up this month, how volatile is it, and what are the main risks I should know about?",
-    "claim": "Every purchase your agent made, every one it was refused, and the price of each - refusals decided by your Passport, not by the agent.",
-    "session": {
-      "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
-      "task_summary": null,
-      "max_amount_per_tx": "0.06",
-      "max_total_amount": "0.1",
-      "assets": null
-    },
-    "payer_address": "0x1724508463D67b77882375931A46A351C0B69905",
-    "agent": {
-      "agent_id": "agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c",
-      "address": "0x5512caEe289ef639CD3181487F93920C5F544868"
-    },
-    "chain": {
-      "network": "eip155:8453",
-      "chain_id": 8453,
-      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-      "symbol": "USDC",
-      "explorer": "https://basescan.org"
-    },
-    "seller": {
-      "name": "Kite service catalog",
-      "pay_to": "0xCfca130E445A5178d621aAd38E51D049855911c2"
-    },
-    "attestation": {
-      "domain": "capsule.decision-log.v1",
-      "message": "capsule.decision-log.v1\ndid:did:kite:ind-akoladefatoki108:capsule-agent\nhead:0x279e1752b94b75ef850d692c552a5fc3a3d6ddc732b8842562e293128dc384f9\nrecords:3\nchain:eip155:8453",
-      "head": "0x279e1752b94b75ef850d692c552a5fc3a3d6ddc732b8842562e293128dc384f9",
-      "did": "did:kite:ind-akoladefatoki108:capsule-agent",
-      "key_id": "did:kite:ind-akoladefatoki108:capsule-agent#jkt:7b8ca731257ec4b3",
-      "address": "0x5512caEe289ef639CD3181487F93920C5F544868",
-      "algorithm": "EIP-191 secp256k1 (personal_sign)",
-      "signature": "0x8585e39a39b21324543904410da661807eb9bbf6edb8b2d27bd046aac127a1711215cb290905c5ac967dbed6a8f37cf217a8b4e53647094f2a132c49a7e9f9b91b",
-      "signed_at": "2026-11-12T09:50:36.381Z"
-    },
-    "published_key": {
-      "key_id": "did:kite:ind-akoladefatoki108:capsule-agent#jkt:7b8ca731257ec4b3",
-      "pub_key": "secp256k1:AwgdUOmm5ym00U/Dk+0tUA4wURALviMLqlXMuBa9kmpg",
-      "address": "0x5512caEe289ef639CD3181487F93920C5F544868",
-      "active": true
-    },
-    "log": {
-      "algorithm": "keccak-256",
-      "path": "docs/decision-log.jsonl",
-      "records": 3,
-      "head": "0x279e1752b94b75ef850d692c552a5fc3a3d6ddc732b8842562e293128dc384f9",
-      "verified": true
-    },
-    "counterfactual": {
-      "facts": [
-        {
-          "fact": "current ETH price and 24h change",
-          "covered": true,
-          "blocked_attempt": null
-        },
-        {
-          "fact": "sentiment and recent headlines",
-          "covered": true,
-          "blocked_attempt": null
-        },
-        {
-          "fact": "search interest and trend over the last month",
-          "covered": true,
-          "blocked_attempt": null
-        },
-        {
-          "fact": "volatility and drawdown",
-          "covered": false,
-          "blocked_attempt": null
-        },
-        {
-          "fact": "main risk factors",
-          "covered": false,
-          "blocked_attempt": null
-        }
-      ],
-      "attempts": [],
-      "cost_usd": 0,
-      "budget_multiplier": 0,
-      "budget_usd": 0.1,
-      "unattempted_facts": [
-        "volatility and drawdown",
-        "main risk factors"
-      ]
-    },
-    "substitutions": [],
-    "steps": [
-      {
-        "n": 1,
-        "url": "https://agent402.tools/api/crypto-price?coins=ETH&currency=usd",
-        "endpoint": "Agent402 Tools /api/crypto-price",
-        "price_usd": "0.001",
-        "outcome": "paid",
-        "http_status": 200,
-        "error_code": null,
-        "error_message": null,
-        "tx_hash": "0xde3407331e6db215239a171789eaf26490bf023a211c6eb1d820e5c5ea3a5586",
-        "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
-        "spent_total_after": "0.001",
-        "paid_at": "2026-11-12T09:50:11.232Z"
-      },
-      {
-        "n": 2,
-        "url": "https://x402.ottoai.services/base-ecosystem-news",
-        "endpoint": "Otto AI /base-ecosystem-news",
-        "price_usd": "0.001",
-        "outcome": "paid",
-        "http_status": 200,
-        "error_code": null,
-        "error_message": null,
-        "tx_hash": "0xb0cc177cdfe5db3eb666ed28e92e563868de69b5f9efe78f0d8823ba294bf94d",
-        "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
-        "spent_total_after": "0.002",
-        "paid_at": "2026-11-12T09:50:16.719Z"
-      },
-      {
-        "n": 3,
-        "url": "https://google-trends.use.x402atlas.com/trend-over-time?geo=US&keyword=ETH&timeframe=past_12_months",
-        "endpoint": "Google Trends (x402Atlas) /trend-over-time",
-        "price_usd": "0.05",
-        "outcome": "paid",
-        "http_status": 200,
-        "error_code": null,
-        "error_message": null,
-        "tx_hash": "0xd769e94012206754dcf5c93921aa1fda87e14910d4246553828866851abfdaf5",
-        "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
-        "spent_total_after": "0.052",
-        "paid_at": "2026-11-12T09:50:22.739Z"
-      }
-    ],
-    "totals": {
-      "payments": 3,
-      "refusals": 0,
-      "spent_usd": "0.052",
-      "session_budget_usd": "0.1"
-    }
-  },
   "generated_at": "2026-11-12T05:50:50.237Z",
   "task": "Give me a cautious assessment of ETH: has it trended up this month, how volatile is it, and what are the main risks I should know about?",
   "claim": "Every purchase your agent made, every one it was refused, and the price of each - refusals decided by your Passport, not by the agent.",
@@ -149,11 +9,11 @@
     "max_total_amount": "0.0025",
     "assets": null
   },
-  "payer_address": "0x1724508463D67b77882375931A46A351C0B69905",
   "agent": {
     "agent_id": "agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c",
     "address": "0x5512caEe289ef639CD3181487F93920C5F544868"
   },
+  "payer_address": "0x1724508463D67b77882375931A46A351C0B69905",
   "chain": {
     "network": "eip155:8453",
     "chain_id": 8453,
@@ -165,6 +25,13 @@
     "name": "Kite service catalog",
     "pay_to": "0xCfca130E445A5178d621aAd38E51D049855911c2"
   },
+  "log": {
+    "algorithm": "keccak-256",
+    "path": "docs/decision-log.jsonl",
+    "records": 4,
+    "head": "0x6ab76d14fe58ea60c1f5f9a0cf9a4319ad9a37ce7c888c464f74a8ea848e581e",
+    "verified": true
+  },
   "attestation": {
     "domain": "capsule.decision-log.v1",
     "message": "capsule.decision-log.v1\ndid:did:kite:ind-akoladefatoki108:capsule-agent\nhead:0x6ab76d14fe58ea60c1f5f9a0cf9a4319ad9a37ce7c888c464f74a8ea848e581e\nrecords:4\nchain:eip155:8453",
@@ -174,20 +41,13 @@
     "address": "0x5512caEe289ef639CD3181487F93920C5F544868",
     "algorithm": "EIP-191 secp256k1 (personal_sign)",
     "signature": "0x74e5c23572af270ec3b53a56a5143766e672882a8c1a8cb65e05ba7a2f8cdd2826160da61d70823432c1d8c87a26df387fce9101d3805f5e138824d10f5520921b",
-    "signed_at": "2026-11-12T10:11:41.677Z"
+    "signed_at": "2026-11-12T10:40:21.057Z"
   },
   "published_key": {
     "key_id": "did:kite:ind-akoladefatoki108:capsule-agent#jkt:7b8ca731257ec4b3",
     "pub_key": "secp256k1:AwgdUOmm5ym00U/Dk+0tUA4wURALviMLqlXMuBa9kmpg",
     "address": "0x5512caEe289ef639CD3181487F93920C5F544868",
     "active": true
-  },
-  "log": {
-    "algorithm": "keccak-256",
-    "path": "docs/decision-log.jsonl",
-    "records": 4,
-    "head": "0x6ab76d14fe58ea60c1f5f9a0cf9a4319ad9a37ce7c888c464f74a8ea848e581e",
-    "verified": true
   },
   "counterfactual": {
     "facts": [
@@ -289,8 +149,8 @@
       "error_code": null,
       "error_message": null,
       "tx_hash": "0xf222835b302b905f6d00c5e620cfc59a7b97c1f1d9672eb4c9cdd682e3ecde4e",
-      "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
-      "spent_total_after": "0.0010",
+      "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
+      "spent_total_after": "0.001",
       "paid_at": "2026-11-12T05:50:23.053Z"
     },
     {
@@ -303,8 +163,8 @@
       "error_code": null,
       "error_message": null,
       "tx_hash": "0x92031083779833938768c700c2a23a06d340ee08d7c5b124d65939f5f72c2920",
-      "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
-      "spent_total_after": "0.0020",
+      "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
+      "spent_total_after": "0.002",
       "paid_at": "2026-11-12T05:50:43.982Z"
     },
     {
@@ -317,8 +177,8 @@
       "error_code": "session_rule_exceeded",
       "error_message": "payment amount exceeds max_amount_per_tx",
       "tx_hash": null,
-      "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
-      "spent_total_after": "0.0020",
+      "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
+      "spent_total_after": "0.002",
       "paid_at": null
     },
     {
@@ -331,15 +191,155 @@
       "error_code": "session_total_exceeded",
       "error_message": "payment amount exceeds max_total_amount",
       "tx_hash": null,
-      "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
-      "spent_total_after": "0.0020",
+      "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
+      "spent_total_after": "0.002",
       "paid_at": null
     }
   ],
   "totals": {
     "payments": 2,
     "refusals": 2,
-    "spent_usd": "0.0020",
+    "spent_usd": "0.002",
     "session_budget_usd": "0.0025"
+  },
+  "contrast": {
+    "generated_at": "2026-11-12T09:50:22.742Z",
+    "task": "Give me a cautious assessment of ETH: has it trended up this month, how volatile is it, and what are the main risks I should know about?",
+    "claim": "Every purchase your agent made, every one it was refused, and the price of each - refusals decided by your Passport, not by the agent.",
+    "session": {
+      "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
+      "task_summary": null,
+      "max_amount_per_tx": "0.06",
+      "max_total_amount": "0.1",
+      "assets": null
+    },
+    "agent": {
+      "agent_id": "agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c",
+      "address": "0x5512caEe289ef639CD3181487F93920C5F544868"
+    },
+    "payer_address": "0x1724508463D67b77882375931A46A351C0B69905",
+    "chain": {
+      "network": "eip155:8453",
+      "chain_id": 8453,
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "symbol": "USDC",
+      "explorer": "https://basescan.org"
+    },
+    "seller": {
+      "name": "Kite service catalog",
+      "pay_to": "0xCfca130E445A5178d621aAd38E51D049855911c2"
+    },
+    "log": {
+      "algorithm": "keccak-256",
+      "path": "docs/decision-log.jsonl",
+      "records": 3,
+      "head": "0x279e1752b94b75ef850d692c552a5fc3a3d6ddc732b8842562e293128dc384f9",
+      "verified": true
+    },
+    "attestation": {
+      "domain": "capsule.decision-log.v1",
+      "message": "capsule.decision-log.v1\ndid:did:kite:ind-akoladefatoki108:capsule-agent\nhead:0x279e1752b94b75ef850d692c552a5fc3a3d6ddc732b8842562e293128dc384f9\nrecords:3\nchain:eip155:8453",
+      "head": "0x279e1752b94b75ef850d692c552a5fc3a3d6ddc732b8842562e293128dc384f9",
+      "did": "did:kite:ind-akoladefatoki108:capsule-agent",
+      "key_id": "did:kite:ind-akoladefatoki108:capsule-agent#jkt:7b8ca731257ec4b3",
+      "address": "0x5512caEe289ef639CD3181487F93920C5F544868",
+      "algorithm": "EIP-191 secp256k1 (personal_sign)",
+      "signature": "0x8585e39a39b21324543904410da661807eb9bbf6edb8b2d27bd046aac127a1711215cb290905c5ac967dbed6a8f37cf217a8b4e53647094f2a132c49a7e9f9b91b",
+      "signed_at": "2026-11-12T09:50:36.381Z"
+    },
+    "published_key": {
+      "key_id": "did:kite:ind-akoladefatoki108:capsule-agent#jkt:7b8ca731257ec4b3",
+      "pub_key": "secp256k1:AwgdUOmm5ym00U/Dk+0tUA4wURALviMLqlXMuBa9kmpg",
+      "address": "0x5512caEe289ef639CD3181487F93920C5F544868",
+      "active": true
+    },
+    "counterfactual": {
+      "facts": [
+        {
+          "fact": "current ETH price and 24h change",
+          "covered": true,
+          "blocked_attempt": null
+        },
+        {
+          "fact": "sentiment and recent headlines",
+          "covered": true,
+          "blocked_attempt": null
+        },
+        {
+          "fact": "search interest and trend over the last month",
+          "covered": true,
+          "blocked_attempt": null
+        },
+        {
+          "fact": "volatility and drawdown",
+          "covered": false,
+          "blocked_attempt": null
+        },
+        {
+          "fact": "main risk factors",
+          "covered": false,
+          "blocked_attempt": null
+        }
+      ],
+      "attempts": [],
+      "cost_usd": 0,
+      "budget_multiplier": 0,
+      "budget_usd": 0.1,
+      "unattempted_facts": [
+        "volatility and drawdown",
+        "main risk factors"
+      ]
+    },
+    "substitutions": [],
+    "steps": [
+      {
+        "n": 0,
+        "url": "https://agent402.tools/api/crypto-price?coins=ETH&currency=usd",
+        "endpoint": "Agent402 Tools /api/crypto-price",
+        "price_usd": "0.001",
+        "outcome": "paid",
+        "http_status": 200,
+        "error_code": null,
+        "error_message": null,
+        "tx_hash": "0xde3407331e6db215239a171789eaf26490bf023a211c6eb1d820e5c5ea3a5586",
+        "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
+        "spent_total_after": "0.001",
+        "paid_at": "2026-11-12T09:50:11.232Z"
+      },
+      {
+        "n": 1,
+        "url": "https://x402.ottoai.services/base-ecosystem-news",
+        "endpoint": "Otto AI /base-ecosystem-news",
+        "price_usd": "0.001",
+        "outcome": "paid",
+        "http_status": 200,
+        "error_code": null,
+        "error_message": null,
+        "tx_hash": "0xb0cc177cdfe5db3eb666ed28e92e563868de69b5f9efe78f0d8823ba294bf94d",
+        "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
+        "spent_total_after": "0.002",
+        "paid_at": "2026-11-12T09:50:16.721Z"
+      },
+      {
+        "n": 2,
+        "url": "https://google-trends.use.x402atlas.com/trend-over-time?geo=US&keyword=ETH&timeframe=past_12_months",
+        "endpoint": "Google Trends (x402Atlas) /trend-over-time",
+        "price_usd": "0.05",
+        "outcome": "paid",
+        "http_status": 200,
+        "error_code": null,
+        "error_message": null,
+        "tx_hash": "0xd769e94012206754dcf5c93921aa1fda87e14910d4246553828866851abfdaf5",
+        "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
+        "spent_total_after": "0.052",
+        "paid_at": "2026-11-12T09:50:22.742Z"
+      }
+    ],
+    "totals": {
+      "payments": 3,
+      "refusals": 0,
+      "spent_usd": "0.052",
+      "session_budget_usd": "0.1"
+    }
   }
 }

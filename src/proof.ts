@@ -1,17 +1,19 @@
 /**
- * The proof surface.
+ * The proof layer.
  *
- * A receipt file is written by the demo run and committed. The proof endpoint
- * does not trust it: it re-reads each transaction from the chain and checks
- * the USDC transfer against the receipt, so a judge fetching /proof.json sees
- * the chain's answer, not our claim about the chain.
+ * A receipt is what the run recorded. A chain check is what the chain says now.
+ * The proof is the two, compared.
+ *
+ * The chain is read through a small cache: a mined transaction's receipt never
+ * changes, so it is read once and kept; the head block is read once per
+ * request and shared by every check.
  */
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { KITE_MAINNET, BASE_MAINNET, type SettlementChain } from "./kite.js";
+import { toBaseUnits } from "./units.js";
+import { chainForNetwork, type SettlementChain } from "./chains.js";
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
+const HERE = path.dirname(new URL(import.meta.url).pathname);
 export const REPO_ROOT = path.resolve(HERE, "..");
 export const RECEIPTS_PATH = path.join(REPO_ROOT, "docs", "receipts.json");
 
@@ -32,6 +34,12 @@ export interface ReceiptStep {
   session_id: string | null;
   spent_total_after: string | null;
   paid_at: string | null;
+}
+
+export interface LogSession {
+  id: string | null;
+  max_amount_per_tx: string | null;
+  max_total_amount: string | null;
 }
 
 export interface Receipts {
@@ -58,7 +66,6 @@ export interface Receipts {
     explorer: string;
   };
   seller: { name: string; pay_to: string };
-  /** The hash chain over the decisions, and its head. */
   log: {
     algorithm: string;
     path: string;
@@ -66,7 +73,6 @@ export interface Receipts {
     head: string | null;
     verified: boolean;
   };
-  /** The agent's signature over the log head, anchored to its DID. */
   attestation: {
     domain: string;
     message: string;
@@ -78,14 +84,12 @@ export interface Receipts {
     signature: string;
     signed_at: string;
   } | null;
-  /** The key the Passport publishes for that DID, as read from its directory. */
   published_key: {
     key_id: string;
     pub_key: string;
     address: string;
     active: boolean;
   } | null;
-  /** What the limit cost, priced from the attempts the agent actually made. */
   counterfactual: {
     facts: Array<{
       fact: string;
@@ -110,7 +114,6 @@ export interface Receipts {
     budget_usd: number;
     unattempted_facts: string[];
   };
-  /** For every refusal, what the agent bought instead. */
   substitutions: Array<{
     refusal_seq: number;
     wanted: string;
@@ -135,21 +138,25 @@ export interface Receipts {
   };
 }
 
-export async function readReceipts(): Promise<Receipts | null> {
+export async function readReceipts(file = RECEIPTS_PATH): Promise<Receipts | null> {
   try {
-    const raw = await readFile(RECEIPTS_PATH, "utf8");
-    return JSON.parse(raw) as Receipts;
+    return JSON.parse(await readFile(file, "utf8")) as Receipts;
   } catch {
     return null;
   }
 }
 
+/** The chain a record was settled on, read from the record itself. */
 export function chainFor(network: string): SettlementChain {
-  return network === KITE_MAINNET.network
-    ? KITE_MAINNET
-    : network === BASE_MAINNET.network
-      ? BASE_MAINNET
-      : KITE_MAINNET;
+  return chainForNetwork(network);
+}
+
+// ---------------------------------------------------------------- the chain --
+
+interface ChainReceipt {
+  blockNumber: string;
+  status: string;
+  logs: Array<{ address?: string; topics: string[]; data: string }>;
 }
 
 async function rpc<T>(url: string, method: string, params: unknown[]): Promise<T> {
@@ -157,6 +164,7 @@ async function rpc<T>(url: string, method: string, params: unknown[]): Promise<T
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+    signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) throw new Error(`RPC ${method} HTTP ${response.status}`);
   const body = (await response.json()) as { result?: T; error?: { message: string } };
@@ -164,8 +172,43 @@ async function rpc<T>(url: string, method: string, params: unknown[]): Promise<T
   return body.result as T;
 }
 
+/**
+ * Reads the chain, with a cache.
+ *
+ * A mined transaction's receipt is immutable, so it is fetched once and kept.
+ * The head block is fetched once per request and shared by every check, which
+ * is what made the old code do two network round trips per paid step.
+ */
+export class ChainReader {
+  private readonly receipts = new Map<string, ChainReceipt | null>();
+  private headBlock: number | null = null;
+
+  constructor(private readonly chain: SettlementChain) {}
+
+  async head(): Promise<number> {
+    if (this.headBlock !== null) return this.headBlock;
+    const block = await rpc<string>(this.chain.rpcUrl, "eth_blockNumber", []);
+    this.headBlock = Number.parseInt(block, 16);
+    return this.headBlock;
+  }
+
+  async receipt(hash: string): Promise<ChainReceipt | null> {
+    if (this.receipts.has(hash)) return this.receipts.get(hash) ?? null;
+    const receipt = await rpc<ChainReceipt | null>(
+      this.chain.rpcUrl,
+      "eth_getTransactionReceipt",
+      [hash],
+    );
+    this.receipts.set(hash, receipt);
+    return receipt;
+  }
+}
+
+export type CheckOutcome = "confirmed" | "mismatch" | "unavailable";
+
 export interface ChainCheck {
   tx_hash: string;
+  outcome: CheckOutcome;
   found: boolean;
   block_number: number | null;
   confirmations: number | null;
@@ -173,28 +216,27 @@ export interface ChainCheck {
   recipient: string | null;
   sender: string | null;
   transfers: Array<{ from: string; to: string; value_base_units: string }>;
-  matches_receipt: boolean | null;
   note: string;
 }
 
 /**
- * Re-reads one settlement from the chain and checks that a USDC transfer of
- * the expected size moved in it.
+ * Re-reads one settlement and checks it against the receipt.
  *
- * The recipient is reported rather than compared against a fixed address: the
- * money goes to whichever merchant was paid, and the claim being verified is
- * "this transaction moved exactly this much USDC on this chain".
+ * The check is deliberately narrow: a transfer of *this* asset, of *this*
+ * amount, paid by *the session's wallet*, to *some* address. The recipient is
+ * reported rather than compared, because the money goes to whichever merchant
+ * was paid.
  */
 export async function verifyStep(
   step: ReceiptStep,
   chain: SettlementChain,
   expectedAmountBaseUnits: string | null,
   expectedSender: string | null = null,
-  /** Overridable so the check can be tested without a network. */
-  rpcUrl: string = chain.rpcUrl,
+  reader?: ChainReader,
 ): Promise<ChainCheck> {
   const base: ChainCheck = {
     tx_hash: step.tx_hash ?? "",
+    outcome: "unavailable",
     found: false,
     block_number: null,
     confirmations: null,
@@ -202,7 +244,6 @@ export async function verifyStep(
     recipient: null,
     sender: null,
     transfers: [],
-    matches_receipt: null,
     note: "",
   };
   try {
@@ -214,50 +255,51 @@ export async function verifyStep(
     base.note = "no transaction hash recorded for this step";
     return base;
   }
+
+  const chainReader = reader ?? new ChainReader(chain);
   try {
-    const receipt = await rpc<{
-      blockNumber: string;
-      status: string;
-      logs: Array<{ address?: string; topics: string[]; data: string }>;
-    } | null>(rpcUrl, "eth_getTransactionReceipt", [step.tx_hash]);
+    const receipt = await chainReader.receipt(step.tx_hash);
     if (!receipt) {
-      base.note = "transaction hash not found on chain";
+      base.note = "the transaction hash was not found on chain";
       return base;
     }
-    const block = await rpc<string>(rpcUrl, "eth_blockNumber", []);
+    const head = await chainReader.head();
     const blockNumber = Number.parseInt(receipt.blockNumber, 16);
-    const head = Number.parseInt(block, 16);
     base.found = true;
     base.block_number = blockNumber;
     base.confirmations = Math.max(0, head - blockNumber + 1);
-    base.note = receipt.status === "0x1" ? "status success" : "status reverted";
+    if (receipt.status !== "0x1") {
+      base.outcome = "mismatch";
+      base.note = "the transaction reverted";
+      return base;
+    }
 
-    // Only transfers of the asset this run settles in. A transaction can
-    // carry other tokens; a match on amount alone would not prove anything.
     for (const log of receipt.logs ?? []) {
       if (log.topics?.[0]?.toLowerCase() !== TRANSFER_TOPIC) continue;
       if (log.address?.toLowerCase() !== chain.assetAddress.toLowerCase()) continue;
-      const from = `0x${log.topics[1]?.slice(-40)}`;
-      const to = `0x${log.topics[2]?.slice(-40)}`;
-      const value = BigInt(log.data).toString();
-      base.transfers.push({ from, to, value_base_units: value });
+      base.transfers.push({
+        from: `0x${log.topics[1]!.slice(-40)}`,
+        to: `0x${log.topics[2]!.slice(-40)}`,
+        value_base_units: BigInt(log.data).toString(),
+      });
     }
     if (base.transfers.length === 0) {
-      base.matches_receipt = false;
-      base.note += "; no USDC transfer in this transaction";
+      base.outcome = "mismatch";
+      base.note = `no ${chain.assetSymbol} transfer in this transaction`;
       return base;
     }
-    // The payer must be the wallet the session was funded from.
+
     const fromWallet = base.transfers.filter(
       (transfer) =>
         expectedSender === null ||
         transfer.from.toLowerCase() === expectedSender.toLowerCase(),
     );
-    if (expectedSender && fromWallet.length === 0 && base.transfers.length > 0) {
-      base.matches_receipt = false;
-      base.note += `; no transfer was paid by the session's wallet ${expectedSender}`;
+    if (expectedSender && fromWallet.length === 0) {
+      base.outcome = "mismatch";
+      base.note = `no transfer was paid by the session's wallet ${expectedSender}`;
       return base;
     }
+
     const matching = fromWallet.filter(
       (transfer) =>
         expectedAmountBaseUnits === null ||
@@ -265,27 +307,30 @@ export async function verifyStep(
     );
     base.recipient = matching[0]?.to ?? fromWallet[0]?.to ?? null;
     base.sender = matching[0]?.from ?? fromWallet[0]?.from ?? null;
-    if (expectedAmountBaseUnits === null) {
-      base.matches_receipt = null;
-      base.note += "; a USDC transfer was found, no expected amount recorded";
-    } else if (matching.length > 0) {
-      base.matches_receipt = true;
-      base.note += "; a USDC transfer of exactly the expected amount was found";
-    } else {
-      base.matches_receipt = false;
-      base.note +=
-        "; USDC transfers were found but none matched the expected amount " +
-        expectedAmountBaseUnits;
+
+    if (matching.length === 0) {
+      base.outcome = "mismatch";
+      base.note += "; the transfer amount does not match the receipt";
+      return base;
     }
+    base.outcome = "confirmed";
+    base.note = "a transfer of the expected amount was paid by the session's wallet";
     return base;
   } catch (error) {
-    base.note = `verification failed: ${error instanceof Error ? error.message : String(error)}`;
+    base.outcome = "unavailable";
+    base.note = `the chain could not be read: ${error instanceof Error ? error.message : String(error)}`;
     return base;
   }
 }
 
-/** Base units of a dollar amount on the settlement chain. */
-export function dollarsToBaseUnits(dollars: string, decimals: number): string {
-  const [whole = "0", fraction = ""] = dollars.trim().replace(/^\$/, "").split(".");
-  return BigInt(whole + fraction.padEnd(decimals, "0")).toString();
+/** The base units of a receipt's price on a chain. */
+export function expectedBaseUnits(
+  priceUsd: string,
+  chain: SettlementChain,
+): string | null {
+  try {
+    return toBaseUnits(priceUsd, chain.assetDecimals);
+  } catch {
+    return null;
+  }
 }

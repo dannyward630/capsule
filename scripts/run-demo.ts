@@ -1,41 +1,34 @@
 /**
  * Runs one task end to end and writes the evidence.
  *
- * The decision log is the artifact: every attempt is appended as it happens, and
- * the receipts file is derived from that log rather than assembled beside it.
+ * The decision log is the artifact: every attempt is appended as it happens.
+ * The receipts are derived from that log afterwards.
  */
-import { writeFile, mkdir, readFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Agent } from "../src/agent.js";
 import { Kpass } from "../src/kpass.js";
 import { ServClient } from "../src/serv.js";
-import { REPO_ROOT, type Receipts } from "../src/proof.js";
-import { chainByName } from "../src/kite.js";
-import {
-  DecisionLog,
-  HASH_ALGORITHM,
-  substitutions,
-  split,
-} from "../src/log.js";
+import { DecisionLog } from "../src/log.js";
 import { fetchPublishedKeys, signLog } from "../src/attest.js";
-import { computeCounterfactual } from "../src/counterfactual.js";
+import { buildArtifact } from "../src/artifact.js";
 import { loadMenu } from "../src/menu.js";
+import { chainByName, DEFAULT_CHAIN_ID } from "../src/chains.js";
+import { REPO_ROOT } from "../src/proof.js";
 
+const DID = process.env.KPASS_AGENT_DID ?? "did:kite:ind-akoladefatoki108:capsule-agent";
 const TASK =
   process.env.DEMO_TASK ??
   "Give me a cautious assessment of ETH: what is it trading at, how has it trended over the last month, how volatile is it, and what are the main risks right now?";
-
+const CLAIM =
+  "Every purchase your agent made, every one it was refused, and the price of each - refusals decided by your Passport, not by the agent.";
 const REQUIRED_FACTS = (
   process.env.DEMO_FACTS ??
   "current ETH price and 24h change;sentiment and recent headlines;search interest and trend over the last month;volatility and drawdown;main risk factors"
 ).split(";");
 
 async function main() {
-  const chain = chainByName(process.env.SETTLEMENT_CHAIN ?? "base");
-  const seller = JSON.parse(
-    await readFile(path.join(REPO_ROOT, "docs", "seller.json"), "utf8"),
-  ) as { address: string };
-
+  const chain = chainByName(process.env.SETTLEMENT_CHAIN ?? DEFAULT_CHAIN_ID);
   const kpass = new Kpass({ cwd: REPO_ROOT, sessionId: process.env.KPASS_SESSION_ID ?? null });
   const serv = new ServClient();
   const log = new DecisionLog();
@@ -59,106 +52,54 @@ async function main() {
 
   const run = await agent.run();
 
-  const records = await log.read();
-  const chainCheck = await log.verifyChain();
-  const { purchases, refusals } = split(records);
-  if (!chainCheck.ok) {
-    throw new Error(
-      `the decision log is broken at record ${chainCheck.brokenAt}: ${chainCheck.reason}`,
-    );
-  }
+  const keys = await fetchPublishedKeys(DID).catch(() => []);
+  const key = keys.find((candidate) => candidate.active) ?? keys[0] ?? null;
 
-  // The agent signs its own record with the key the Passport binds to its DID,
-  // so a third party can check the record against the Passport's own copy.
-  const did = process.env.KPASS_AGENT_DID ?? "did:kite:ind-akoladefatoki108:capsule-agent";
-  let attestation: Receipts["attestation"] = null;
-  let published_key: Receipts["published_key"] = null;
-  try {
-    const keys = await fetchPublishedKeys(did);
-    const key = keys.find((candidate) => candidate.active) ?? keys[0] ?? null;
-    published_key = key;
-    attestation = await signLog({
-      head: chainCheck.head ?? "",
-      did,
-      keyId: key?.key_id ?? null,
-      records: records.length,
-      chain: chain.network,
-    });
-  } catch (error) {
-    console.error(`warning: the attestation could not be signed: ${String(error)}`);
-  }
-
-  const receipts: Receipts = {
-    generated_at: new Date().toISOString(),
-    task: TASK,
-    claim:
-      "Every purchase your agent made, every one it was refused, and the price of each - refusals decided by your Passport, not by the agent.",
-    session: {
-      session_id: run.session.session_id,
-      task_summary: null,
-      max_amount_per_tx: run.session.max_amount_per_tx,
-      max_total_amount: run.session.max_total_amount,
-      assets: null,
-    },
-    payer_address: await kpass.walletAddress(
-      process.env.SETTLEMENT_CHAIN === "kite" ? "kite" : "base",
-    ),
+  const { receipts, session } = await buildArtifact({
+    logPath: log.path,
+    facts: REQUIRED_FACTS,
+    menu,
+    chain,
     agent: {
-      agent_id:
-        process.env.KPASS_AGENT_ID ?? "agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c",
+      id: process.env.KPASS_AGENT_ID ?? "agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c",
       address: "0x5512caEe289ef639CD3181487F93920C5F544868",
     },
-    chain: {
-      network: chain.network,
-      chain_id: Number(chain.network.split(":")[1]),
-      asset: chain.assetAddress,
-      symbol: chain.assetSymbol,
-      explorer: chain.explorerUrl,
-    },
-    seller: {
-      name: "Kite service catalog",
-      pay_to: seller.address,
-    },
-    attestation,
-    published_key,
-    log: {
-      algorithm: HASH_ALGORITHM,
-      path: path.relative(REPO_ROOT, log.path),
-      records: records.length,
-      head: chainCheck.head,
-      verified: chainCheck.ok,
-    },
-    counterfactual: computeCounterfactual({
-      records,
-      facts: REQUIRED_FACTS,
-      menu: await loadMenu(),
-      budgetUsd: Number(run.session.max_total_amount ?? 0),
-    }),
-    substitutions: substitutions(records),
-    steps: run.steps,
-    totals: {
-      payments: purchases.length,
-      refusals: refusals.length,
-      spent_usd: run.session.spent_total ?? "0",
-      session_budget_usd: run.session.max_total_amount ?? "0",
-    },
-  };
+    payer: await kpass.walletAddress(chain.id === "kite" ? "kite" : "base"),
+    seller: { name: "Kite service catalog", pay_to: "" },
+    task: TASK,
+    claim: CLAIM,
+    publishedKey: key,
+  });
 
-  await mkdir(path.join(REPO_ROOT, "docs"), { recursive: true });
+  if (receipts.log.head) {
+    try {
+      receipts.attestation = await signLog({
+        head: receipts.log.head,
+        did: DID,
+        keyId: key?.key_id ?? null,
+        records: receipts.log.records,
+        chain: chain.network,
+      });
+    } catch (error) {
+      console.error(`warning: the attestation could not be signed: ${String(error)}`);
+    }
+  }
+
   await writeFile(
     path.join(REPO_ROOT, "docs", "receipts.json"),
     `${JSON.stringify(receipts, null, 2)}\n`,
   );
 
   console.log("\n--- decisions ---");
-  for (const record of records) {
-    if (record.decision.kind === "purchase") {
+  for (const record of run.records) {
+    const decision = record.decision;
+    if (decision.kind === "purchase") {
       console.log(
-        `  ${record.seq}. paid    $${record.decision.price_usd.padEnd(6)} ${record.decision.service}${record.decision.tx_hash ? `  tx=${record.decision.tx_hash.slice(0, 12)}...` : ""}`,
+        `  ${record.seq}. paid    $${decision.price_usd.padEnd(6)} ${decision.service}${decision.tx_hash ? `  tx=${decision.tx_hash.slice(0, 12)}...` : ""}`,
       );
-    } else if (record.decision.kind === "refusal") {
+    } else if (decision.kind === "refusal") {
       console.log(
-        `  ${record.seq}. refused $${record.decision.price_usd.padEnd(6)} ${record.decision.service}  (${record.decision.error_code})`,
+        `  ${record.seq}. refused $${decision.price_usd.padEnd(6)} ${decision.service}  (${decision.error_code})`,
       );
     }
   }
@@ -166,7 +107,9 @@ async function main() {
     `\nspent ${receipts.totals.spent_usd} of ${receipts.totals.session_budget_usd} budget, ` +
       `${receipts.totals.payments} paid, ${receipts.totals.refusals} refused`,
   );
-  console.log(`log:   ${records.length} records, ${HASH_ALGORITHM}, head ${chainCheck.head?.slice(0, 14)}...`);
+  console.log(
+    `log:   ${receipts.log.records} records, ${receipts.log.algorithm}, head ${receipts.log.head?.slice(0, 14)}...`,
+  );
   console.log(`facts covered: ${run.coveredFacts.length}/${REQUIRED_FACTS.length}`);
   if (run.missingFacts.length) {
     console.log(`facts missing: ${run.missingFacts.join(", ")}`);

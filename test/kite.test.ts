@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parsePrice, toBaseUnits, chainByName, KITE_MAINNET, BASE_MAINNET } from "../src/kite.js";
+import { parsePrice } from "../src/kite.js";
+import { toBaseUnits } from "../src/units.js";
+import { chainByName, KITE_MAINNET, BASE_MAINNET } from "../src/chains.js";
 
 test("prices are converted to base units with integer maths", () => {
   assert.equal(parsePrice("$0.05", KITE_MAINNET).amount, "50000");
@@ -31,5 +33,8 @@ test("the chain names resolve", () => {
   assert.equal(chainByName(undefined).network, "eip155:8453");
   assert.equal(chainByName("base").network, "eip155:8453");
   assert.equal(chainByName("kite").network, "eip155:2366");
-  assert.throws(() => chainByName("polygon"), /unknown SETTLEMENT_CHAIN/);
+  // A record names the chain it settled on, by network or by id.
+  assert.equal(chainByName("eip155:2366").id, "kite");
+  assert.equal(chainByName("8453").id, "base");
+  assert.throws(() => chainByName("polygon"), /unknown chain/);
 });

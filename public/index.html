@@ -869,7 +869,18 @@
               <td>${c.block_number ?? "—"}</td>
               <td>${c.confirmations ?? "—"}</td>
               <td class="wrap">${escape(c.recipient || "—")}</td>
-              <td>${statusChip(c.matches_receipt === true ? "verified" : "fault", c.matches_receipt === true ? "confirmed" : "unconfirmed")}</td>
+              <td>${statusChip(
+                c.outcome === "confirmed"
+                  ? "verified"
+                  : c.outcome === "unavailable"
+                    ? "neutral"
+                    : "fault",
+                c.outcome === "confirmed"
+                  ? "confirmed"
+                  : c.outcome === "unavailable"
+                    ? "could not read"
+                    : "did not match",
+              )}</td>
             </tr>`
           )
           .join("");

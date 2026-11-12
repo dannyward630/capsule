@@ -23,16 +23,16 @@ interface ProofPayload {
   chain_checks?: Array<{
     tx_hash: string;
     found: boolean;
-    matches_receipt: boolean | null;
+    outcome: "confirmed" | "mismatch" | "unavailable";
     confirmations: number | null;
     recipient: string | null;
   }>;
   totals?: { payments: number; refusals: number; spent_usd: string; session_budget_usd: string };
 }
 
-const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
+const results: Array<{ name: string; ok: boolean; detail: string }> = [];
 const record = (name: string, ok: boolean, detail: string) => {
-  checks.push({ name, ok, detail });
+  results.push({ name, ok, detail });
   console.log(`${ok ? "  ok  " : " FAIL "} ${name.padEnd(44)} ${detail}`);
 };
 
@@ -153,13 +153,14 @@ async function main() {
     proof.log?.records === receipts.log.records,
     `${proof.log?.records} vs ${receipts.log.records}`,
   );
-  const confirmed = (proof.chain_checks ?? []).filter(
-    (check) => check.found && check.matches_receipt === true,
-  );
+  const chainChecks = proof.chain_checks ?? [];
+  const confirmed = chainChecks.filter((check) => check.outcome === "confirmed");
+  const unavailable = chainChecks.filter((check) => check.outcome === "unavailable");
   record(
-    "every live chain check found its transfer",
-    confirmed.length === (proof.chain_checks ?? []).length,
-    `${confirmed.length}/${(proof.chain_checks ?? []).length}`,
+    "every live chain check confirmed its transfer",
+    confirmed.length === chainChecks.length,
+    `${confirmed.length}/${chainChecks.length} confirmed` +
+      (unavailable.length ? `, ${unavailable.length} could not be read` : ""),
   );
   record(
     "live totals match the committed totals",
@@ -168,9 +169,9 @@ async function main() {
     `${proof.totals?.payments} paid / ${proof.totals?.refusals} refused`,
   );
 
-  const failed = checks.filter((check) => !check.ok);
+  const failed = results.filter((check) => !check.ok);
   console.log(
-    `\n${checks.length - failed.length}/${checks.length} checks passed` +
+    `\n${results.length - failed.length}/${results.length} checks passed` +
       (failed.length ? ` — ${failed.length} failed` : " — verification OK"),
   );
   process.exit(failed.length ? 1 : 0);

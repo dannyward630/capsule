@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
 import { verifyStep, type ReceiptStep } from "../src/proof.js";
-import { BASE_MAINNET } from "../src/kite.js";
+import { BASE_MAINNET } from "../src/chains.js";
 
 const TRANSFER_TOPIC =
   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
@@ -45,10 +45,15 @@ async function stubRpc(
   };
 }
 
-const BASE_MINNET_DUMMY = { ...BASE_MAINNET, assetAddress: "0x" + "11".repeat(20) };
 const PAYER = "0x1724508463D67b77882375931A46A351C0B69905";
 const MERCHANT = "0x0e84ddedaaE6a779C462c22a59F301EC31B6b808";
 const USDC = BASE_MAINNET.assetAddress;
+const OTHER_ASSET = "0x" + "11".repeat(20);
+
+/** A chain that reads from the stub instead of the network. */
+function chainFor(url: string) {
+  return { ...BASE_MAINNET, rpcUrl: url };
+}
 
 function step(): ReceiptStep {
   return {
@@ -67,16 +72,22 @@ function step(): ReceiptStep {
   };
 }
 
-test("a transfer of the right asset and amount, from the session's wallet, matches", async () => {
+test("a transfer of the right asset and amount, from the session's wallet, is confirmed", async () => {
   const rpc = await stubRpc([
     { address: USDC, from: PAYER, to: MERCHANT, value: "1000" },
   ]);
   try {
-    const result = await verifyStep(step(), BASE_MAINNET, "1000", PAYER, rpc.url);
-    assert.equal(result.matches_receipt, true);
+    const result = await verifyStep(
+      step(),
+      chainFor(rpc.url),
+      "1000",
+      PAYER,
+    );
+    assert.equal(result.outcome, "confirmed");
     assert.equal(result.recipient?.toLowerCase(), MERCHANT.toLowerCase());
     assert.equal(result.sender?.toLowerCase(), PAYER.toLowerCase());
     assert.equal(result.transfers.length, 1);
+    assert.ok((result.confirmations ?? 0) > 0);
   } finally {
     rpc.close();
   }
@@ -84,11 +95,11 @@ test("a transfer of the right asset and amount, from the session's wallet, match
 
 test("a transfer of a different token is ignored", async () => {
   const rpc = await stubRpc([
-    { address: "0x0000000000000000000000000000000000000001", from: PAYER, to: MERCHANT, value: "1000" },
+    { address: OTHER_ASSET, from: PAYER, to: MERCHANT, value: "1000" },
   ]);
   try {
-    const result = await verifyStep(step(), BASE_MINNET_DUMMY, "1000", PAYER, rpc.url);
-    assert.equal(result.matches_receipt, false);
+    const result = await verifyStep(step(), chainFor(rpc.url), "1000", PAYER);
+    assert.equal(result.outcome, "mismatch");
     assert.equal(result.transfers.length, 0);
     assert.match(result.note, /no USDC transfer/);
   } finally {
@@ -98,11 +109,16 @@ test("a transfer of a different token is ignored", async () => {
 
 test("a transfer of the right amount but from another wallet does not match", async () => {
   const rpc = await stubRpc([
-    { address: USDC, from: "0x000000000000000000000000000000000000dEaD", to: MERCHANT, value: "1000" },
+    {
+      address: USDC,
+      from: "0x000000000000000000000000000000000000dEaD",
+      to: MERCHANT,
+      value: "1000",
+    },
   ]);
   try {
-    const result = await verifyStep(step(), BASE_MAINNET, "1000", PAYER, rpc.url);
-    assert.equal(result.matches_receipt, false);
+    const result = await verifyStep(step(), chainFor(rpc.url), "1000", PAYER);
+    assert.equal(result.outcome, "mismatch");
     assert.match(result.note, /no transfer was paid by the session's wallet/);
   } finally {
     rpc.close();
@@ -114,11 +130,18 @@ test("a transfer of the wrong amount does not match", async () => {
     { address: USDC, from: PAYER, to: MERCHANT, value: "999" },
   ]);
   try {
-    const result = await verifyStep(step(), BASE_MAINNET, "1000", PAYER, rpc.url);
-    assert.equal(result.matches_receipt, false);
+    const result = await verifyStep(step(), chainFor(rpc.url), "1000", PAYER);
+    assert.equal(result.outcome, "mismatch");
   } finally {
     rpc.close();
   }
+});
+
+test("a chain that cannot be read is unavailable, not a mismatch", async () => {
+  // A chain pointed at a port nobody is listening on.
+  const result = await verifyStep(step(), chainFor("http://127.0.0.1:9"), "1000", PAYER);
+  assert.equal(result.outcome, "unavailable");
+  assert.match(result.note, /could not be read/);
 });
 
 test("a step with no transaction hash is reported, not thrown", async () => {
@@ -129,6 +152,6 @@ test("a step with no transaction hash is reported, not thrown", async () => {
     PAYER,
   );
   assert.equal(result.found, false);
+  assert.equal(result.outcome, "unavailable");
   assert.match(result.note, /no transaction hash/);
 });
-

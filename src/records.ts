@@ -1,0 +1,117 @@
+/**
+ * The record builder.
+ *
+ * One place turns a decision log into a receipts document. The demo run and the
+ * rebuild both call it, so the artifact cannot drift between the two paths.
+ */
+import { HASH_ALGORITHM, split, substitutions, type LogRecord } from "./log.js";
+import { computeCounterfactual } from "./counterfactual.js";
+import { fromBaseUnits, toBaseUnits } from "./units.js";
+import type { SettlementChain } from "./chains.js";
+import type { Menu } from "./menu.js";
+import type { Receipts, ReceiptStep } from "./proof.js";
+
+export interface BuildReceiptsInput {
+  records: LogRecord[];
+  /** The session that produced the log. */
+  session: {
+    id: string | null;
+    max_amount_per_tx: string | null;
+    max_total_amount: string | null;
+  };
+  /** The facts the answer had to cover. */
+  facts: string[];
+  menu: Menu;
+  chain: SettlementChain;
+  agent: { id: string | null; address: string | null };
+  payer: string | null;
+  seller: { name: string; pay_to: string };
+  attestation?: Receipts["attestation"];
+  publishedKey?: Receipts["published_key"];
+  task: string;
+  claim: string;
+  generatedAt?: string;
+}
+
+export function buildReceipts(input: BuildReceiptsInput): Receipts {
+  const { records } = input;
+  const { purchases, refusals } = split(records);
+
+  // The running total. A refused purchase does not move it, which is the whole
+  // point of the column.
+  let running = 0n;
+  const steps: ReceiptStep[] = records.map((record, index) => {
+    const decision = record.decision;
+    if (decision.kind === "note") {
+      throw new Error(`record ${index} is a note, which a run does not write`);
+    }
+    if (decision.kind === "purchase") {
+      running += BigInt(toBaseUnits(decision.price_usd, input.chain.assetDecimals));
+    }
+    return {
+      n: index,
+      url: decision.url,
+      endpoint: decision.service,
+      price_usd: decision.price_usd,
+      outcome: decision.kind === "purchase" ? "paid" : "refused",
+      http_status: decision.kind === "purchase" ? 200 : null,
+      error_code: decision.kind === "refusal" ? decision.error_code : null,
+      error_message: decision.kind === "refusal" ? decision.message : null,
+      tx_hash: decision.kind === "purchase" ? decision.tx_hash : null,
+      session_id: record.session?.id ?? input.session.id,
+      spent_total_after: fromBaseUnits(running, input.chain.assetDecimals),
+      paid_at: decision.kind === "purchase" ? record.at : null,
+    };
+  });
+
+  const counterfactual = computeCounterfactual({
+    records,
+    facts: input.facts,
+    menu: input.menu,
+    budgetUsd: Number(input.session.max_total_amount ?? 0),
+  });
+
+  return {
+    generated_at: input.generatedAt ?? records[records.length - 1]?.at ?? new Date().toISOString(),
+    task: input.task,
+    claim: input.claim,
+    session: {
+      session_id: input.session.id,
+      task_summary: null,
+      max_amount_per_tx: input.session.max_amount_per_tx,
+      max_total_amount: input.session.max_total_amount,
+      assets: null,
+    },
+    agent: {
+      agent_id: input.agent.id,
+      address: input.agent.address,
+    },
+    payer_address: input.payer,
+    chain: {
+      network: input.chain.network,
+      chain_id: input.chain.chainId,
+      asset: input.chain.assetAddress,
+      symbol: input.chain.assetSymbol,
+      explorer: input.chain.explorerUrl,
+    },
+    seller: input.seller,
+    log: {
+      algorithm: HASH_ALGORITHM,
+      path: "docs/decision-log.jsonl",
+      records: records.length,
+      head: records[records.length - 1]?.hash ?? null,
+      verified: true,
+    },
+    attestation: input.attestation ?? null,
+    published_key: input.publishedKey ?? null,
+    counterfactual,
+    substitutions: substitutions(records),
+    steps,
+    totals: {
+      payments: purchases.length,
+      refusals: refusals.length,
+      spent_usd: fromBaseUnits(running, input.chain.assetDecimals),
+      session_budget_usd: input.session.max_total_amount ?? "0",
+    },
+  };
+}

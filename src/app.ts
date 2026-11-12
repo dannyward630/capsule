@@ -1,10 +1,9 @@
 /**
- * The application: the paid data service, and the proof surface a judge can
- * check without an account.
+ * The application.
  *
- * Two things live here on purpose. The seller is a real merchant that settles
- * real USDC. The proof page re-reads the chain rather than repeating what our
- * README says about it.
+ * Two things live here on purpose. The merchant is a real merchant that
+ * settles real USDC. The proof endpoint re-reads the chain rather than
+ * repeating what the README says about it.
  */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -12,20 +11,18 @@ import express, { type Request, type Response } from "express";
 import { paymentMiddleware } from "@x402/express";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { HTTPFacilitatorClient, x402ResourceServer, type RoutesConfig } from "@x402/core/server";
-import {
-  FACILITATOR_URL,
-  chainByName,
-  chainMoneyParser,
-  type SettlementChain,
-} from "./kite.js";
+import { FACILITATOR_URL, chainMoneyParser } from "./kite.js";
+import { DEFAULT_CHAIN_ID, chainByName, type SettlementChain } from "./chains.js";
 import { CATALOG } from "./catalog.js";
 import { sellerRouter } from "./seller.js";
-import { REPO_ROOT, type Receipts } from "./proof.js";
 import {
+  ChainReader,
+  REPO_ROOT,
   chainFor,
-  dollarsToBaseUnits,
+  expectedBaseUnits,
   readReceipts,
   verifyStep,
+  type Receipts,
 } from "./proof.js";
 
 function env(key: string, fallback = ""): string {
@@ -39,7 +36,7 @@ export interface AppConfig {
 }
 
 export function readConfig(): AppConfig {
-  const chain = chainByName(env("SETTLEMENT_CHAIN", "kite"));
+  const chain = chainByName(env("SETTLEMENT_CHAIN", DEFAULT_CHAIN_ID));
   const payTo = env("PAY_TO");
   if (!payTo) {
     throw new Error(
@@ -47,7 +44,7 @@ export function readConfig(): AppConfig {
         "PAY_TO is not set, so the merchant has nowhere to send the payments.",
         "",
         "Set it to the address that should receive them:",
-        '  cp .env.example .env && edit PAY_TO=0xYourAddress',
+        "  cp .env.example .env && edit PAY_TO=0xYourAddress",
         "",
         "The address used by the recorded run is in docs/seller.json.",
       ].join("\n"),
@@ -82,8 +79,53 @@ export function paidRoutes(config: AppConfig): RoutesConfig {
   return routes;
 }
 
+/** Cached chain reads, one per chain, shared by every request. */
+const readers = new Map<string, ChainReader>();
+function readerFor(chain: SettlementChain): ChainReader {
+  const existing = readers.get(chain.id);
+  if (existing) return existing;
+  const reader = new ChainReader(chain);
+  readers.set(chain.id, reader);
+  return reader;
+}
 
-export function createApp(config: AppConfig = readConfig()) {  const app = express();
+/**
+ * Checks every paid step of a record against the chain.
+ *
+ * One head read for the whole record, and one read per transaction, in
+ * parallel. A transaction that cannot be read is "unavailable", which is not
+ * the same as "did not match".
+ */
+export async function checkRecord(
+  receipts: Receipts,
+): Promise<{
+  checks: Array<Awaited<ReturnType<typeof verifyStep>>>;
+  allVerified: boolean;
+}> {
+  const chain = chainFor(receipts.chain.network);
+  const reader = readerFor(chain);
+  const checks = await Promise.all(
+    receipts.steps
+      .filter((step) => step.outcome === "paid")
+      .map((step) =>
+        verifyStep(
+          step,
+          chain,
+          expectedBaseUnits(step.price_usd, chain),
+          receipts.payer_address,
+          reader,
+        ),
+      ),
+  );
+  return {
+    checks,
+    allVerified:
+      checks.length > 0 && checks.every((check) => check.outcome === "confirmed"),
+  };
+}
+
+export function createApp(config: AppConfig = readConfig()) {
+  const app = express();
   app.disable("x-powered-by");
   // Vercel terminates TLS in front of the function and forwards the original
   // scheme in x-forwarded-proto. Without this the x402 challenge would
@@ -124,28 +166,7 @@ export function createApp(config: AppConfig = readConfig()) {  const app = expre
           "No demo run has been recorded yet. The receipts file is written by `npm run demo`.",
       });
     }
-    const contrast = receipts.contrast ?? null;
-    const chain = chainFor(receipts.chain.network);
-    const checks = await Promise.all(
-      receipts.steps
-        .filter((step) => step.outcome === "paid")
-        .map(async (step) => ({
-          n: step.n,
-          endpoint: step.endpoint,
-          price_usd: step.price_usd,
-          expected_base_units: dollarsToBaseUnits(
-            step.price_usd,
-            chain.assetDecimals,
-          ),
-          ...(await verifyStep(
-            step,
-            chain,
-            dollarsToBaseUnits(step.price_usd, chain.assetDecimals),
-            receipts.payer_address,
-          )),
-        })),
-    );
-    const allMatch = checks.every((check) => check.matches_receipt === true);
+    const { checks, allVerified } = await checkRecord(receipts);
     return response.json({
       status: "verified",
       generated_at: receipts.generated_at,
@@ -161,30 +182,28 @@ export function createApp(config: AppConfig = readConfig()) {  const app = expre
       attestation: receipts.attestation,
       published_key: receipts.published_key,
       substitutions: receipts.substitutions,
-      contrast,
+      contrast: receipts.contrast ?? null,
       totals: receipts.totals,
       steps: receipts.steps,
       chain_checks: checks,
-      all_payments_verified_on_chain: allMatch,
+      all_payments_verified_on_chain: allVerified,
       note:
         "chain_checks are re-read from the chain at request time; they are not a copy of the receipts.",
     });
   });
 
-  // The judge page is public/index.html. On Vercel the CDN serves public/ and
-  // express.static is ignored; locally this mount does the same job.
   app.get("/proof", (_request, response) => {
     response.redirect("/");
   });
 
-  app.use(express.static(new URL("../public", import.meta.url).pathname));
+  app.use(express.static(path.join(REPO_ROOT, "public")));
 
   return app;
 }
 
 /**
- * The Express app as Vercel finds it: a default export from src/app.ts, or a
- * port listener. Vercel routes every request to this one function.
+ * The Express app as Vercel finds it: a default export, so one function
+ * handles every route.
  */
 const app = createApp();
 

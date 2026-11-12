@@ -1,231 +1,124 @@
 /**
- * Rebuilds docs/receipts.json from the decision log and the Passport's own
- * record of the session.
+ * Rebuilds docs/receipts.json from the decision log.
  *
- * The log is the artifact. This script proves it: it re-derives the receipts
- * from the hash chain and the session the CLI can still read, so the evidence
- * can be regenerated without spending anything again.
+ * The log is the artifact. This proves it: the receipts are re-derived from
+ * the hash chain and the session the log records, so the evidence regenerates
+ * without spending anything again.
  */
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { Kpass } from "../src/kpass.js";
-import { DecisionLog, HASH_ALGORITHM, substitutions, split } from "../src/log.js";
-import { REPO_ROOT, type Receipts, type ReceiptStep } from "../src/proof.js";
-import { chainByName } from "../src/kite.js";
 import { fetchPublishedKeys, signLog } from "../src/attest.js";
-import { computeCounterfactual } from "../src/counterfactual.js";
+import { buildArtifact, readPreviousReceipts } from "../src/artifact.js";
 import { loadMenu } from "../src/menu.js";
+import { chainByName, DEFAULT_CHAIN_ID } from "../src/chains.js";
+import { REPO_ROOT, type Receipts } from "../src/proof.js";
+
+const DID = process.env.KPASS_AGENT_DID ?? "did:kite:ind-akoladefatoki108:capsule-agent";
+const TASK =
+  process.env.DEMO_TASK ??
+  "Give me a cautious assessment of ETH: what is it trading at, how has it trended over the last month, how volatile is it, and what are the main risks right now?";
+const CLAIM =
+  "Every purchase your agent made, every one it was refused, and the price of each - refusals decided by your Passport, not by the agent.";
 
 async function main() {
-  const log = new DecisionLog({ path: path.join(REPO_ROOT, "docs", "decision-log.jsonl") });
-  const records = await log.read();
-  if (!records.length) {
-    console.log("the decision log is empty; nothing to rebuild");
-    return;
-  }
-  const chainCheck = await log.verifyChain();
-  if (!chainCheck.ok) {
-    throw new Error(
-      `the decision log is broken at record ${chainCheck.brokenAt}: ${chainCheck.reason}`,
-    );
-  }
-
+  const chain = chainByName(process.env.SETTLEMENT_CHAIN ?? DEFAULT_CHAIN_ID);
   const kpass = new Kpass({ cwd: REPO_ROOT });
-  const session = await kpass.currentSession();
-  const payments = await kpass.payments();
-  const chain = chainByName(process.env.SETTLEMENT_CHAIN ?? "base");
-  const seller = JSON.parse(
-    await readFile(path.join(REPO_ROOT, "docs", "seller.json"), "utf8"),
-  ) as { address: string };
+  const previous = await readPreviousReceipts();
+  const menu = await loadMenu();
+  const facts = (process.env.DEMO_FACTS ?? "").split(";").filter(Boolean);
 
-  // The running total, computed from the log's own prices. A refused purchase
-  // does not move it, which is the whole point of the column.
-  let running = 0;
-  const steps: ReceiptStep[] = records.map((record, index) => {
-    const decision = record.decision;
-    if (decision.kind === "note") {
-      throw new Error(`record ${index} is a note, which the run does not write`);
-    }
-    const payment =
-      decision.kind === "purchase"
-        ? payments.find((entry) => entry.url === decision.url)
-        : undefined;
-    if (decision.kind === "purchase") running += Number(decision.price_usd);
-    return {
-      n: index,
-      url: decision.url,
-      endpoint: `${decision.service}`,
-      price_usd: decision.price_usd,
-      outcome: decision.kind === "purchase" ? "paid" : "refused",
-      http_status: decision.kind === "purchase" ? 200 : null,
-      error_code: decision.kind === "refusal" ? decision.error_code : null,
-      error_message: decision.kind === "refusal" ? decision.message : null,
-      tx_hash: decision.kind === "purchase" ? (decision.tx_hash ?? payment?.txHash ?? null) : null,
-      session_id: session?.session_id ?? null,
-      spent_total_after: running.toFixed(4),
-      paid_at: decision.kind === "purchase" ? record.at : null,
-    };
+  let attestation = null;
+  let publishedKey = null;
+  try {
+    const keys = await fetchPublishedKeys(DID);
+    const key = keys.find((candidate) => candidate.active) ?? keys[0] ?? null;
+    publishedKey = key;
+  } catch {
+    publishedKey = null;
+  }
+
+  const { receipts, session } = await buildArtifact({
+    logPath: path.join(REPO_ROOT, "docs", "decision-log.jsonl"),
+    facts,
+    menu,
+    chain,
+    agent: {
+      id: process.env.KPASS_AGENT_ID ?? "agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c",
+      address: "0x5512caEe289ef639CD3181487F93920C5F544868",
+    },
+    payer: await kpass.walletAddress(chain.id === "kite" ? "kite" : "base"),
+    seller: { name: "Kite service catalog", pay_to: previous?.seller.pay_to ?? "" },
+    task: previous?.task || TASK,
+    claim: previous?.claim || CLAIM,
+    fallbackSession: previous
+      ? {
+          id: previous.session.session_id,
+          max_amount_per_tx: previous.session.max_amount_per_tx,
+          max_total_amount: previous.session.max_total_amount,
+        }
+      : null,
+    publishedKey,
   });
 
-  const { purchases, refusals } = split(records);
-  const spent = purchases.reduce(
-    (total, record) =>
-      total + (record.decision.kind === "purchase" ? Number(record.decision.price_usd) : 0),
-    0,
-  );
-
-  const did = process.env.KPASS_AGENT_DID ?? "did:kite:ind-akoladefatoki108:capsule-agent";
-  let attestation: Receipts["attestation"] = null;
-  let published_key: Receipts["published_key"] = null;
-  try {
-    const keys = await fetchPublishedKeys(did);
-    const key = keys.find((candidate) => candidate.active) ?? keys[0] ?? null;
-    published_key = key;
-    attestation = await signLog({
-      head: chainCheck.head ?? "",
-      did,
-      keyId: key?.key_id ?? null,
-      records: records.length,
-      chain: chain.network,
-    });
-  } catch (error) {
-    console.error(`warning: the attestation could not be signed: ${String(error)}`);
+  // Sign the head with the agent's key, so the record is attributable.
+  if (receipts.log.head) {
+    try {
+      attestation = await signLog({
+        head: receipts.log.head,
+        did: DID,
+        keyId: publishedKey?.key_id ?? null,
+        records: receipts.log.records,
+        chain: chain.network,
+      });
+    } catch (error) {
+      console.error(`warning: the attestation could not be signed: ${String(error)}`);
+    }
   }
+  receipts.attestation = attestation;
+  receipts.published_key = publishedKey;
 
-  // The task and the session are part of the artifact; a rebuild must not
-  // blank them or silently bind them to a different session.
-  let existingTask = "";
-  let previousSession:
-    | { session_id?: string | null; max_amount_per_tx?: string | null; max_total_amount?: string | null }
-    | undefined;
+  // The contrast run, if there is one, is merged in the same way.
   try {
-    const previous = JSON.parse(
-      await readFile(path.join(REPO_ROOT, "docs", "receipts.json"), "utf8"),
-    ) as {
-      task?: string;
-      session?: {
-        session_id?: string | null;
-        max_amount_per_tx?: string | null;
-        max_total_amount?: string | null;
-      };
-    };
-    existingTask = previous.task ?? "";
-    previousSession = previous.session;
-  } catch {
-    existingTask = "";
-  }
-  const logSession = records.find((record) => record.session)?.session;
-
-  // The contrast run is merged in at build time, so the running app reads one
-  // file and the deployment does not depend on a second path being uploaded.
-  let contrast: Receipts | undefined;
-  try {
-    contrast = JSON.parse(
-      await readFile(
+    const contrastPrevious = JSON.parse(
+      await (await import("node:fs/promises")).readFile(
         path.join(REPO_ROOT, "docs", "runs", "contrast", "receipts.json"),
         "utf8",
       ),
     ) as Receipts;
+    const contrast = await buildArtifact({
+      logPath: path.join(REPO_ROOT, "docs", "runs", "contrast", "decision-log.jsonl"),
+      facts,
+      menu,
+      chain,
+      agent: {
+        id: contrastPrevious.agent.agent_id,
+        address: contrastPrevious.agent.address,
+      },
+      payer: contrastPrevious.payer_address,
+      seller: contrastPrevious.seller,
+      task: contrastPrevious.task,
+      claim: contrastPrevious.claim,
+      fallbackSession: {
+        id: contrastPrevious.session.session_id,
+        max_amount_per_tx: contrastPrevious.session.max_amount_per_tx,
+        max_total_amount: contrastPrevious.session.max_total_amount,
+      },
+      attestation: contrastPrevious.attestation,
+      publishedKey: contrastPrevious.published_key,
+    });
+    receipts.contrast = contrast.receipts;
   } catch {
-    contrast = undefined;
+    // the contrast run is optional
   }
-
-  if (contrast) {
-    try {
-      const contrastRecords = await new DecisionLog({
-        path: path.join(REPO_ROOT, "docs", "runs", "contrast", "decision-log.jsonl"),
-      }).read();
-      const contrastSession = contrastRecords.find((record) => record.session)?.session;
-      contrast.counterfactual = computeCounterfactual({
-        records: contrastRecords,
-        facts: (process.env.DEMO_FACTS ?? "").split(";").filter(Boolean),
-        menu: await loadMenu(),
-        budgetUsd: Number(
-          contrastSession?.max_total_amount ??
-            contrast.session?.max_total_amount ??
-            0,
-        ),
-      });
-    } catch {
-      // the contrast run's log is optional
-    }
-  }
-
-  const receipts: Receipts = {
-    ...(contrast ? { contrast } : {}),
-    generated_at: records[records.length - 1]!.at,
-    task: process.env.DEMO_TASK ?? existingTask,
-    claim:
-      "Every purchase your agent made, every one it was refused, and the price of each - refusals decided by your Passport, not by the agent.",
-    session: {
-      // The session that produced the log. A log written now carries it; an
-      // older one does not, so the previous receipts are the fallback. The
-      // *current* session is never used: it may be a different one.
-      session_id: logSession?.id ?? previousSession?.session_id ?? null,
-      task_summary: null,
-      max_amount_per_tx:
-        logSession?.max_amount_per_tx ?? previousSession?.max_amount_per_tx ?? null,
-      max_total_amount:
-        logSession?.max_total_amount ?? previousSession?.max_total_amount ?? null,
-      assets: null,
-    },
-    payer_address: await kpass.walletAddress(
-      process.env.SETTLEMENT_CHAIN === "kite" ? "kite" : "base",
-    ),
-    agent: {
-      agent_id:
-        process.env.KPASS_AGENT_ID ?? "agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c",
-      address: "0x5512caEe289ef639CD3181487F93920C5F544868",
-    },
-    chain: {
-      network: chain.network,
-      chain_id: Number(chain.network.split(":")[1]),
-      asset: chain.assetAddress,
-      symbol: chain.assetSymbol,
-      explorer: chain.explorerUrl,
-    },
-    seller: { name: "Kite service catalog", pay_to: seller.address },
-    attestation,
-    published_key,
-    log: {
-      algorithm: HASH_ALGORITHM,
-      path: "docs/decision-log.jsonl",
-      records: records.length,
-      head: chainCheck.head,
-      verified: chainCheck.ok,
-    },
-    counterfactual: computeCounterfactual({
-      records,
-      facts: (process.env.DEMO_FACTS ?? "").split(";").filter(Boolean),
-      menu: await loadMenu(),
-      // The budget of the session that produced this run.
-      budgetUsd: Number(
-        logSession?.max_total_amount ??
-          previousSession?.max_total_amount ??
-          session?.max_total_amount ??
-          0,
-      ),
-    }),
-    substitutions: substitutions(records),
-    steps,
-    totals: {
-      payments: purchases.length,
-      refusals: refusals.length,
-      spent_usd: spent.toFixed(4),
-      session_budget_usd:
-        logSession?.max_total_amount ??
-        previousSession?.max_total_amount ??
-        session?.max_total_amount ??
-        "0",
-    },
-  };
 
   await writeFile(
     path.join(REPO_ROOT, "docs", "receipts.json"),
     `${JSON.stringify(receipts, null, 2)}\n`,
   );
   console.log(
-    `docs/receipts.json rebuilt from the log: ${records.length} records, head ${chainCheck.head?.slice(0, 14)}...`,
+    `docs/receipts.json rebuilt from the log: ${receipts.log.records} records, head ${receipts.log.head?.slice(0, 14)}...` +
+      `, session ${session.id ?? "unknown"}`,
   );
 }
 

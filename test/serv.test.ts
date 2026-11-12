@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseChoice } from "../src/serv.js";
-import { dollarsToBaseUnits } from "../src/proof.js";
+import { toBaseUnits } from "../src/units.js";
 
 test("the model's answer is parsed", () => {
   const choice = parseChoice('{"action":"buy","endpoint":"/v1/history","topic":"ETH","reason":"trend"}');
@@ -34,6 +34,6 @@ test("unparseable output is an error", () => {
 });
 
 test("receipt amounts convert to the asset's base units", () => {
-  assert.equal(dollarsToBaseUnits("0.05", 6), "50000");
-  assert.equal(dollarsToBaseUnits("1.20", 6), "1200000");
+  assert.equal(toBaseUnits("0.05", 6), "50000");
+  assert.equal(toBaseUnits("1.20", 6), "1200000");
 });

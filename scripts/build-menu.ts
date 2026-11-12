@@ -11,7 +11,7 @@ import { writeFile, mkdir } from "node:fs/promises";
 import { promisify } from "node:util";
 import path from "node:path";
 import { REPO_ROOT } from "../src/proof.js";
-import { BASE_MAINNET } from "../src/kite.js";
+import { BASE_MAINNET } from "../src/chains.js";
 
 const exec = promisify(execFile);
 
