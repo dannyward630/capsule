@@ -17,6 +17,7 @@ import {
   substitutions,
   split,
 } from "../src/log.js";
+import { fetchPublishedKeys, signLog } from "../src/attest.js";
 
 const TASK =
   process.env.DEMO_TASK ??
@@ -65,6 +66,26 @@ async function main() {
     );
   }
 
+  // The agent signs its own record with the key the Passport binds to its DID,
+  // so a third party can check the record against the Passport's own copy.
+  const did = process.env.KPASS_AGENT_DID ?? "did:kite:ind-akoladefatoki108:capsule-agent";
+  let attestation: Receipts["attestation"] = null;
+  let published_key: Receipts["published_key"] = null;
+  try {
+    const keys = await fetchPublishedKeys(did);
+    const key = keys.find((candidate) => candidate.active) ?? keys[0] ?? null;
+    published_key = key;
+    attestation = await signLog({
+      head: chainCheck.head ?? "",
+      did,
+      keyId: key?.key_id ?? null,
+      records: records.length,
+      chain: chain.network,
+    });
+  } catch (error) {
+    console.error(`warning: the attestation could not be signed: ${String(error)}`);
+  }
+
   const receipts: Receipts = {
     generated_at: new Date().toISOString(),
     task: TASK,
@@ -93,6 +114,8 @@ async function main() {
       name: "Kite service catalog",
       pay_to: seller.address,
     },
+    attestation,
+    published_key,
     log: {
       algorithm: HASH_ALGORITHM,
       path: path.relative(REPO_ROOT, log.path),

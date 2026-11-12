@@ -141,6 +141,8 @@ export function createApp(config: AppConfig = readConfig()) {  const app = expre
       chain: receipts.chain,
       seller: receipts.seller,
       log: receipts.log,
+      attestation: receipts.attestation,
+      published_key: receipts.published_key,
       substitutions: receipts.substitutions,
       totals: receipts.totals,
       steps: receipts.steps,

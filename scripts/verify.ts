@@ -10,6 +10,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { REPO_ROOT, type Receipts } from "../src/proof.js";
 import { DecisionLog } from "../src/log.js";
+import { fetchPublishedKeys, verifyAttestation, type Attestation } from "../src/attest.js";
 
 const DEPLOYED = (
   process.env.VERIFIER_BASE_URL ?? "https://capsule-phi-blond.vercel.app"
@@ -90,7 +91,43 @@ async function main() {
     `${paidSteps.length} checked`,
   );
 
-  // 3. The live deployment.
+  // 3. The attestation: the agent's signature over the log head, checked
+  //    against the key the Passport publishes for its DID. The key is fetched
+  //    live from Kite's public directory, so this is not our own copy.
+  if (receipts.attestation) {
+    try {
+      const published = await fetchPublishedKeys(receipts.attestation.did);
+      const attestation = receipts.attestation as unknown as Attestation;
+      const result = await verifyAttestation(attestation, published);
+      record(
+        "the log head is signed by the key the Passport publishes",
+        result.ok,
+        result.ok
+          ? `${receipts.attestation.did.slice(0, 34)}... recovered ${result.recovered}`
+          : result.reason,
+      );
+      const tampered = {
+        ...attestation,
+        head: `0x${"11".repeat(32)}`,
+      } as unknown as Attestation;
+      const bad = await verifyAttestation(tampered, published);
+      record(
+        "a tampered head does not verify",
+        !bad.ok,
+        bad.ok ? "a tampered head verified - the check is not working" : "rejected",
+      );
+    } catch (error) {
+      record(
+        "the log head is signed by the key the Passport publishes",
+        false,
+        `the Passport directory could not be read: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  } else {
+    record("the receipts carry an attestation", false, "no attestation in the receipts");
+  }
+
+  // 4. The live deployment.
   let proof: ProofPayload;
   try {
     const response = await fetch(`${DEPLOYED}/proof.json`);

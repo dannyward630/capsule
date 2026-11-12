@@ -796,6 +796,18 @@
             <b>head</b> ${escape(head || "—")}
           </div>
           ${
+            proof.attestation
+              ? `<div class="hashline">
+                  <b>Identity</b> the head is signed by the key Kite publishes for this DID<br />
+                  <b>did</b> ${escape(proof.attestation.did)}<br />
+                  <b>address</b> ${escape(proof.attestation.address)}<br />
+                  <b>signature</b> ${escape(proof.attestation.signature.slice(0, 26))}…
+                  <span style="color:var(--ink-3)">— check it yourself:</span>
+                  <code>ksearch agent keys ${escape(proof.attestation.did)} --agent-base-url https://passport.prod.gokite.ai</code>
+                </div>`
+              : ""
+          }
+          ${
             checks.length
               ? `<table class="checks">
                   <thead><tr><th>Purchase</th><th>Transaction</th><th>Block</th><th>Confirms</th><th>Recipient</th><th>On chain</th></tr></thead>

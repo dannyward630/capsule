@@ -12,6 +12,7 @@ import { Kpass } from "../src/kpass.js";
 import { DecisionLog, HASH_ALGORITHM, substitutions, split } from "../src/log.js";
 import { REPO_ROOT, type Receipts, type ReceiptStep } from "../src/proof.js";
 import { chainByName } from "../src/kite.js";
+import { fetchPublishedKeys, signLog } from "../src/attest.js";
 
 async function main() {
   const log = new DecisionLog({ path: path.join(REPO_ROOT, "docs", "decision-log.jsonl") });
@@ -67,6 +68,24 @@ async function main() {
     0,
   );
 
+  const did = process.env.KPASS_AGENT_DID ?? "did:kite:ind-akoladefatoki108:capsule-agent";
+  let attestation: Receipts["attestation"] = null;
+  let published_key: Receipts["published_key"] = null;
+  try {
+    const keys = await fetchPublishedKeys(did);
+    const key = keys.find((candidate) => candidate.active) ?? keys[0] ?? null;
+    published_key = key;
+    attestation = await signLog({
+      head: chainCheck.head ?? "",
+      did,
+      keyId: key?.key_id ?? null,
+      records: records.length,
+      chain: chain.network,
+    });
+  } catch (error) {
+    console.error(`warning: the attestation could not be signed: ${String(error)}`);
+  }
+
   const receipts: Receipts = {
     generated_at: records[records.length - 1]!.at,
     task: process.env.DEMO_TASK ?? "",
@@ -92,6 +111,8 @@ async function main() {
       explorer: chain.explorerUrl,
     },
     seller: { name: "Kite service catalog", pay_to: seller.address },
+    attestation,
+    published_key,
     log: {
       algorithm: HASH_ALGORITHM,
       path: "docs/decision-log.jsonl",

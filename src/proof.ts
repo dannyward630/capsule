@@ -62,6 +62,25 @@ export interface Receipts {
     head: string | null;
     verified: boolean;
   };
+  /** The agent's signature over the log head, anchored to its DID. */
+  attestation: {
+    domain: string;
+    message: string;
+    head: string;
+    did: string;
+    key_id: string | null;
+    address: string;
+    algorithm: string;
+    signature: string;
+    signed_at: string;
+  } | null;
+  /** The key the Passport publishes for that DID, as read from its directory. */
+  published_key: {
+    key_id: string;
+    pub_key: string;
+    address: string;
+    active: boolean;
+  } | null;
   /** For every refusal, what the agent bought instead. */
   substitutions: Array<{
     refusal_seq: number;
