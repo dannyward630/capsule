@@ -34,7 +34,7 @@
     "address": "0x5512caEe289ef639CD3181487F93920C5F544868",
     "algorithm": "EIP-191 secp256k1 (personal_sign)",
     "signature": "0x74e5c23572af270ec3b53a56a5143766e672882a8c1a8cb65e05ba7a2f8cdd2826160da61d70823432c1d8c87a26df387fce9101d3805f5e138824d10f5520921b",
-    "signed_at": "2026-11-12T09:18:48.382Z"
+    "signed_at": "2026-11-12T09:28:34.221Z"
   },
   "published_key": {
     "key_id": "did:kite:ind-akoladefatoki108:capsule-agent#jkt:7b8ca731257ec4b3",
@@ -66,7 +66,7 @@
         "covered": false,
         "blocked_attempt": {
           "fact": "search interest and trend over the last month",
-          "wanted": "Google Trends (x402Atlas) /trend-over-time https://google-trends.use.x402atlas.com/trend-over-time",
+          "wanted": "Google Trends (x402Atlas) /trend-over-time",
           "wanted_price_usd": "0.05",
           "blocked_by": "session cap",
           "error_code": "session_rule_exceeded"
@@ -77,7 +77,7 @@
         "covered": false,
         "blocked_attempt": {
           "fact": "volatility and drawdown",
-          "wanted": "Otto AI /funding-rates https://x402.ottoai.services/funding-rates",
+          "wanted": "Otto AI /funding-rates",
           "wanted_price_usd": "0.001",
           "blocked_by": "budget",
           "error_code": "session_total_exceeded"
@@ -92,14 +92,14 @@
     "attempts": [
       {
         "fact": "search interest and trend over the last month",
-        "wanted": "Google Trends (x402Atlas) /trend-over-time https://google-trends.use.x402atlas.com/trend-over-time",
+        "wanted": "Google Trends (x402Atlas) /trend-over-time",
         "wanted_price_usd": "0.05",
         "blocked_by": "session cap",
         "error_code": "session_rule_exceeded"
       },
       {
         "fact": "volatility and drawdown",
-        "wanted": "Otto AI /funding-rates https://x402.ottoai.services/funding-rates",
+        "wanted": "Otto AI /funding-rates",
         "wanted_price_usd": "0.001",
         "blocked_by": "budget",
         "error_code": "session_total_exceeded"

@@ -80,6 +80,10 @@ const COINGECKO_IDS: Record<Topic, string> = {
   LINK: "chainlink",
 };
 
+/** A cached spot quote, so a rate limit cannot cost a buyer their money. */
+let spotCache: { topic: Topic; quote: SpotQuote; at: number } | null = null;
+const SPOT_TTL_MS = 60_000;
+
 /** Live spot price, or null when the upstream is unreachable. */
 export interface SpotQuote {
   spotUsd: number | null;
@@ -91,6 +95,13 @@ export interface SpotQuote {
 
 export async function fetchSpot(topic: Topic): Promise<SpotQuote> {
   const asOf = new Date().toISOString();
+  if (
+    spotCache &&
+    spotCache.topic === topic &&
+    Date.now() - spotCache.at < SPOT_TTL_MS
+  ) {
+    return spotCache.quote;
+  }
   const url = `https://api.coingecko.com/api/v3/simple/price?ids=${COINGECKO_IDS[topic]}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true`;
   try {
     const controller = new AbortController();
@@ -108,21 +119,25 @@ export async function fetchSpot(topic: Topic): Promise<SpotQuote> {
     }>;
     const row = body[COINGECKO_IDS[topic]];
     if (!row || typeof row.usd !== "number") throw new Error("no price for topic");
-    return {
+    const quote: SpotQuote = {
       spotUsd: row.usd,
       change24hPct: typeof row.usd_24h_change === "number" ? row.usd_24h_change : null,
       volume24hUsd: typeof row.usd_24h_vol === "number" ? row.usd_24h_vol : null,
       asOf,
       source: "live",
     };
+    spotCache = { topic, quote, at: Date.now() };
+    return quote;
   } catch {
-    return {
+    const unavailable: SpotQuote = {
       spotUsd: null,
       change24hPct: null,
       volume24hUsd: null,
       asOf,
       source: "unavailable",
     };
+    spotCache = { topic, quote: unavailable, at: Date.now() };
+    return unavailable;
   }
 }
 
@@ -177,8 +192,11 @@ export function derivedSeries(topic: Topic, spotUsd: number | null, windowDays: 
     realized_vol_pct: Number(realizedVol.toFixed(2)),
     max_drawdown_pct: Number(maxDrawdown.toFixed(2)),
     vs_ma_pct: Number((((price - mean) / mean) * 100).toFixed(2)),
-    derived: true,
-    note: "derived from the live spot price by a deterministic seeded series",
+    synthetic: true,
+    window_days: windowDays,
+    note:
+      "SYNTHETIC. Generated from the live spot price by a deterministic seeded walk. " +
+      "It is not market history and must not be read as such.",
   };
 }
 
@@ -197,6 +215,6 @@ export function briefing(topic: Topic, spot: SpotQuote) {
       ? [`price is above its 30d mean by ${series.vs_ma_pct ?? "n/a"}%`]
       : ["no upward momentum signal in the sampled window"],
     stance: bull ? "cautiously constructive" : "wait for confirmation",
-    derived: true,
+    synthetic: true,
   };
 }

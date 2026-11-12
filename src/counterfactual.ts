@@ -8,6 +8,7 @@
  * facts" into the number that matters — the limit cost this much.
  */
 import type { LogRecord } from "./log.js";
+import { bestEndpointForFact } from "./menu.js";
 import type { Menu } from "./menu.js";
 
 export interface AttemptedFact {
@@ -65,7 +66,7 @@ export function computeCounterfactual(input: {
     }
     attempts.push({
       fact: decision.fact,
-      wanted: `${decision.service} ${decision.url.split("?")[0]}`,
+      wanted: decision.service,
       wanted_price_usd: decision.price_usd,
       blocked_by: blockedBy(decision.error_code),
       error_code: decision.error_code,
@@ -77,11 +78,35 @@ export function computeCounterfactual(input: {
     0,
   );
 
-  const facts = input.facts.map((fact) => ({
-    fact,
-    covered: coveredFacts.has(fact),
-    blocked_attempt: attempts.find((attempt) => attempt.fact === fact) ?? null,
-  }));
+  const facts = input.facts.map((fact) => {
+    const attempt = attempts.find((row) => row.fact === fact) ?? null;
+    if (coveredFacts.has(fact)) {
+      return { fact, covered: true, blocked_attempt: attempt };
+    }
+    if (attempt) {
+      return { fact, covered: coveredFacts.has(fact), blocked_attempt: attempt };
+    }
+    // The agent never got to ask for this one. The catalog still knows what it
+    // would have cost.
+    const candidate = bestEndpointForFact(input.menu, fact);
+    if (!candidate) {
+      return { fact, covered: coveredFacts.has(fact), blocked_attempt: null };
+    }
+    const price = Number(candidate.price_usd);
+    const blockedBy: "budget" | "session cap" =
+      price > input.budgetUsd + 1e-9 ? "budget" : "session cap";
+    return {
+      fact,
+      covered: coveredFacts.has(fact),
+      blocked_attempt: {
+        fact,
+        wanted: `${candidate.service} ${candidate.path}`,
+        wanted_price_usd: candidate.price_usd,
+        blocked_by: blockedBy,
+        error_code: "(the agent never got to ask)",
+      },
+    };
+  });
 
   return {
     facts,

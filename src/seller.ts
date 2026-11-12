@@ -65,18 +65,20 @@ export function sellerRouter(): Router {
     const topic = topicOf(request);
     if (!topic) return badTopic(response);
     const spot = await fetchSpot(topic);
-    const series = derivedSeries(topic, spot.spotUsd, 30);
+    const week = derivedSeries(topic, spot.spotUsd, 7);
+    const month = derivedSeries(topic, spot.spotUsd, 30);
     return response.json({
       topic,
       spot_usd: spot.spotUsd,
-      return_7d_pct: series.return_pct,
-      return_30d_pct: series.return_pct,
-      realized_vol_30d_pct: series.realized_vol_pct,
-      max_drawdown_30d_pct: series.max_drawdown_pct,
-      vs_ma30_pct: series.vs_ma_pct,
+      return_7d_pct: week.return_pct,
+      return_30d_pct: month.return_pct,
+      realized_vol_30d_pct: month.realized_vol_pct,
+      max_drawdown_30d_pct: month.max_drawdown_pct,
+      vs_ma30_pct: month.vs_ma_pct,
       as_of: spot.asOf,
       spot_source: spot.source,
-      series_source: "derived",
+      series_source: "synthetic",
+      synthetic: true,
       depth: "history",
     });
   });
@@ -96,7 +98,8 @@ export function sellerRouter(): Router {
       trading_days_sampled: 90,
       as_of: spot.asOf,
       spot_source: spot.source,
-      series_source: "derived",
+      series_source: "synthetic",
+      synthetic: true,
       depth: "deep",
     });
   });

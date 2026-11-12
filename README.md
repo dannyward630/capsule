@@ -85,7 +85,7 @@ if all three hold.
 
 | Layer | What it does | Where |
 | --- | --- | --- |
-| The code | Decides what the agent can afford **in total**, and hands the model only that shortlist. It never shows the model an endpoint the remaining budget cannot cover | `src/menu.ts`, `src/agent.ts` |
+| The code | Decides which endpoints could answer the fact being worked on, read from the catalog's own metadata. It does **not** decide what the agent may afford: putting the limit in the code that wants to spend it is the thing this project exists to avoid | `src/menu.ts`, `src/agent.ts` |
 | The Passport backend | Holds the delegation, checks each amount against `max_amount_per_tx` and the running total against `max_total_amount`, and refuses in its own code | `session_rule_exceeded`, `session_total_exceeded` |
 | The merchant | Publishes the price in the x402 challenge; the amount that gets signed is the amount the merchant asked for, not what the model believed it was paying | `src/kite.ts` |
 | The facilitator | Verifies the payment signature and settles the USDC transfer on chain | `https://facilitator.pieverse.io/v2` |
@@ -101,7 +101,8 @@ file it can read.
 | --- | --- | --- |
 | The agent decides what to buy | SERV Reasoning, chat completions with a strict JSON schema the model cannot step outside | `src/serv.ts` |
 | The agent buys one fact at a time | A bounded loop: one fact → one proposal → one purchase → the outcome folded back as state | `src/agent.ts` |
-| The agent cannot plan past its budget | The code filters the menu by the remaining total before the model ever sees it | `src/menu.ts` |
+| The relevance of an endpoint is decided by code, not by the model | The catalog says what each endpoint returns; the code matches that against the missing fact and hands the model only the endpoints that could answer it | `src/menu.ts` |
+| The limit is never decided by this repository | The code does not filter by budget at all. The model may try anything; the Passport decides whether the money moves | `src/agent.ts`, `src/kpass.ts` |
 | The spending limit is the user's | A Kite Passport session approved with a passkey, enforced in the Passport's backend | `kpass session create --separate` |
 | The refusal is the product | `session_rule_exceeded` and `session_total_exceeded` are read as state, not as errors | `src/kpass.ts`, `src/agent.ts` |
 | The record cannot be quietly edited | An append-only keccak-256 hash chain; editing any earlier record breaks every link after it | `src/log.ts` |

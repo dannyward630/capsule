@@ -10,9 +10,8 @@ import { randomUUID } from "node:crypto";
 import { Kpass, isCapRefusal, type KpassResult } from "./kpass.js";
 import { ServClient, parseChoice, SYSTEM_PROMPT } from "./serv.js";
 import {
-  affordable,
   loadMenu,
-  outOfReach,
+  relevantTo,
   type Menu,
   type MenuEntry,
 } from "./menu.js";
@@ -285,27 +284,6 @@ export class Agent {
     };
   }
 
-  /** Finds the menu entry the model meant, tolerating a mangled id. */
-  private resolve(choice: string | null): MenuEntry | undefined {
-    if (!choice || !this.menu) return undefined;
-    const endpoints = this.menu.endpoints;
-    const exact = endpoints.find((entry) => entry.id === choice);
-    if (exact) return exact;
-    const lower = choice.toLowerCase();
-    const byPath = endpoints.find((entry) => entry.path.toLowerCase() === lower);
-    if (byPath) return byPath;
-    const bySuffix = endpoints.find((entry) =>
-      entry.path.toLowerCase().endsWith(lower.replace(/^\//, "")),
-    );
-    if (bySuffix) return bySuffix;
-    const byServicePath = endpoints.find(
-      (entry) =>
-        entry.path.toLowerCase().endsWith(lower) ||
-        `${entry.service} ${entry.path}`.toLowerCase() === lower,
-    );
-    return byServicePath;
-  }
-
   private async decide(
     factToCover: string | null,
     missing: string[],
@@ -343,11 +321,14 @@ export class Agent {
               endpoint: item.label,
               data: summarise(item.data),
             })),
-            // The code decides what is affordable. The model is handed only
-            // the shortlist, so it can never plan past the budget.
-            menu: affordable(
-              this.menu ?? ({ endpoints: [] } as unknown as Menu),
-              remaining,
+            // The code decides which endpoints could answer the fact being
+            // worked on, from the catalog's own metadata. It does not decide
+            // what the agent may afford: that is the Passport's, and the limit
+            // must not live in the code that wants to spend it.
+            menu: (
+              factToCover
+                ? relevantTo(this.menu ?? ({ endpoints: [] } as unknown as Menu), factToCover)
+                : []
             ).map(
               (entry) => ({
                 id: entry.id,

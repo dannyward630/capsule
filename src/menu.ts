@@ -54,23 +54,31 @@ export async function loadMenu(): Promise<Menu> {
 }
 
 /**
- * What the agent can afford right now, in total.
+ * The endpoints that could answer a fact, cheapest first.
  *
- * This is the code-side budget decision. The model is never shown an endpoint
- * whose price is above what is left, so it cannot spend more than the session
- * allows even if it tries.
+ * This is the decision the code makes, and it is the right one to make: whether
+ * an endpoint is *relevant* to a missing fact is mechanical, and it is read out
+ * of the catalog's own metadata rather than judged by a model.
+ *
+ * It is deliberately NOT a budget filter. Deciding what the agent may afford
+ * is the Passport's job, and doing it here would put the limit back inside the
+ * code that wants to spend it — the thing this whole project exists to avoid.
  */
-export function affordable(menu: Menu, remainingUsd: number): MenuEntry[] {
-  return menu.endpoints.filter(
-    (entry) => Number(entry.price_usd) <= remainingUsd + 1e-9,
-  );
+export function relevantTo(menu: Menu, fact: string): MenuEntry[] {
+  return menu.endpoints
+    .map((entry) => ({ entry, score: matchScore(entry, fact) }))
+    .filter((row) => row.score > 0)
+    .sort(
+      (a, b) =>
+        b.score - a.score || Number(a.entry.price_usd) - Number(b.entry.price_usd),
+    )
+    .map((row) => row.entry);
 }
 
 /**
- * The endpoints that the remaining budget puts out of reach.
+ * The endpoints the remaining budget puts out of reach.
  *
- * This is what the limit costs, in the catalog's own prices, and it is the
- * counterfactual the owner never gets to see.
+ * This is what the limit costs, in the catalog's own prices.
  */
 export function outOfReach(menu: Menu, remainingUsd: number): MenuEntry[] {
   return menu.endpoints
@@ -82,15 +90,42 @@ export function outOfReach(menu: Menu, remainingUsd: number): MenuEntry[] {
  * A loose match between a fact the answer needs and the fields an endpoint
  * returns, so the record can say which catalog endpoint would have covered it.
  */
-export function coversFact(entry: MenuEntry, fact: string): boolean {
-  const words = fact
+export function factWords(fact: string): string[] {
+  return fact
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter((word) => word.length > 3 && !STOP_WORDS.has(word));
-  if (!words.length) return false;
+}
+
+/** How many of a fact's words an endpoint's own words cover. */
+export function matchScore(entry: MenuEntry, fact: string): number {
+  const words = factWords(fact);
+  if (!words.length) return 0;
   const haystack = `${entry.summary ?? ""} ${(entry.returns ?? []).join(" ")} ${entry.path ?? ""} ${(entry.tags ?? []).join(" ")}`.toLowerCase();
-  const hits = words.filter((word) => haystack.includes(word)).length;
-  return hits >= 2;
+  return words.filter((word) => haystack.includes(word)).length;
+}
+
+export function coversFact(entry: MenuEntry, fact: string): boolean {
+  return matchScore(entry, fact) >= 1;
+}
+
+/**
+ * The endpoint in the catalog that best covers a fact, cheapest among the best
+ * matches. Used to say what the evidence for an uncovered fact would have cost
+ * when the agent never got as far as asking for it.
+ */
+export function bestEndpointForFact(
+  menu: Menu,
+  fact: string,
+): MenuEntry | null {
+  const scored = menu.endpoints
+    .map((entry) => ({ entry, score: matchScore(entry, fact) }))
+    .filter((row) => row.score > 0)
+    .sort(
+      (a, b) =>
+        b.score - a.score || Number(a.entry.price_usd) - Number(b.entry.price_usd),
+    );
+  return scored[0]?.entry ?? null;
 }
 
 const STOP_WORDS = new Set([

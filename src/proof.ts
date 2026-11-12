@@ -188,6 +188,8 @@ export async function verifyStep(
   chain: SettlementChain,
   expectedAmountBaseUnits: string | null,
   expectedSender: string | null = null,
+  /** Overridable so the check can be tested without a network. */
+  rpcUrl: string = chain.rpcUrl,
 ): Promise<ChainCheck> {
   const base: ChainCheck = {
     tx_hash: step.tx_hash ?? "",
@@ -215,12 +217,12 @@ export async function verifyStep(
       blockNumber: string;
       status: string;
       logs: Array<{ address?: string; topics: string[]; data: string }>;
-    } | null>(chain.rpcUrl, "eth_getTransactionReceipt", [step.tx_hash]);
+    } | null>(rpcUrl, "eth_getTransactionReceipt", [step.tx_hash]);
     if (!receipt) {
       base.note = "transaction hash not found on chain";
       return base;
     }
-    const block = await rpc<string>(chain.rpcUrl, "eth_blockNumber", []);
+    const block = await rpc<string>(rpcUrl, "eth_blockNumber", []);
     const blockNumber = Number.parseInt(receipt.blockNumber, 16);
     const head = Number.parseInt(block, 16);
     base.found = true;
