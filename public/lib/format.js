@@ -11,15 +11,6 @@ export function money(value) {
   return `$${value}`;
 }
 
-/** Escapes text for interpolation into markup. */
-export function escape(value) {
-  return String(value ?? "").replace(/[&<>"']/g, (character) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-      character
-    ],
-  );
-}
-
 /** The host of a URL, or an empty string. */
 export function host(url) {
   try {
@@ -63,14 +54,4 @@ const PLAIN = {
 export function plainError(code) {
   if (!code) return "";
   return PLAIN[code] ?? "the Passport refused this purchase";
-}
-
-/** A status chip. The glyph is not the only cue; the word carries it. */
-export function statusChip(kind, label) {
-  const glyph = { settled: "●", refused: "▲", verified: "✓", fault: "✕", neutral: "○" }[
-    kind
-  ] ?? "○";
-  return `<span class="status ${kind}"><span class="dot" aria-hidden="true"></span>${escape(
-    glyph,
-  )} ${escape(label)}</span>`;
 }

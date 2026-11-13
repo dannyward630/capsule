@@ -268,6 +268,7 @@ export function createApp(config: AppConfig = readConfig()) {
    */
   const PAGES: Record<string, string> = {
     "/runs": "/runs.html",
+    "/components": "/components.html",
     "/docs/security-model": "/docs/security-model.html",
     "/docs/format": "/docs/format.html",
   };

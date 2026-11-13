@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Capsule — the components</title>
+    <meta
+      name="description"
+      content="The component library: every component Capsule's pages are built from, with its props and a live example."
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0d10'/%3E%3Cpath d='M9 21V11l7 5 7-5v10' stroke='%2334d3c4' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <a class="skip" href="#gallery">Skip to the components</a>
+    <div class="shell">
+      <header>
+        <span class="wordmark">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="var(--surface-2)" />
+            <path d="M9 21V11l7 5 7-5v10" stroke="var(--settled)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Capsule
+        </span>
+        <nav class="site-nav" aria-label="Site">
+          <a href="/">The record</a>
+          <a href="/runs.html">The runs</a>
+          <a href="/verify.html">Verify a log</a>
+          <a href="/docs/security-model.html">Security model</a>
+          <a href="/docs/format.html">Log format</a>
+        </nav>
+        <h1>
+          The <span class="accent">components</span>.
+        </h1>
+        <p class="standfirst">
+          Every page on this site is built from these. Each one takes plain props and returns
+          markup; none of them fetches anything, and none of them knows the shape of a proof.
+          That is why the same component shows a recording and a third party's log.
+        </p>
+      </header>
+
+      <section id="gallery" aria-labelledby="gallery-h">
+        <h2 id="gallery-h">The library</h2>
+        <div class="gallery" id="gallery-body">
+          <div class="state" role="status" aria-live="polite"><p>Loading the examples…</p></div>
+        </div>
+      </section>
+
+      <footer>
+        <span>Capsule — the record of what an agent did with your money.</span>
+        <span>Plain ES modules. No framework, no build step.</span>
+      </footer>
+    </div>
+
+    <script type="module" src="/components.js"></script>
+  </body>
+</html>

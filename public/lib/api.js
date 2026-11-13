@@ -103,6 +103,36 @@ export async function fetchPublishedProof(logUrl) {
 }
 
 /**
+ * The recorded runs.
+ *
+ * @returns {Promise<{status: string, task?: string, claim?: string, runs: object[]}>}
+ */
+export async function fetchRuns() {
+  const response = await fetch("/runs.json", { headers: { accept: "application/json" } });
+  if (!response.ok) {
+    throw new ProofError(`the runs endpoint answered HTTP ${response.status}`);
+  }
+  return (await response.json());
+}
+
+/**
+ * One run, with its payments re-read from the chain.
+ *
+ * @param {string} id
+ * @returns {Promise<Proof>}
+ */
+export async function fetchRun(id) {
+  const response = await fetch(`/runs/${encodeURIComponent(id)}.json`, {
+    headers: { accept: "application/json" },
+  });
+  const proof = /** @type {Proof} */ (await response.json());
+  if (!response.ok) {
+    throw new ProofError(proof.message ?? `the run "${id}" could not be loaded`);
+  }
+  return proof;
+}
+
+/**
  * The log URL in the address bar, if there is one.
  * @returns {string|null}
  */

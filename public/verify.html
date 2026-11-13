@@ -39,23 +39,27 @@
           happens. The owner keeps their data; nothing is stored here.
         </p>
 
-        <form class="field" id="form">
+        <form class="field" id="form" novalidate>
+          <label class="sr-only" for="log-url">The URL of a published decision log</label>
           <input
             id="log-url"
             type="url"
             name="log"
+            inputmode="url"
+            autocomplete="url"
+            spellcheck="false"
             placeholder="https://example.com/decision-log.jsonl"
-            aria-label="The URL of a published decision log"
+            aria-describedby="hint"
             required
           />
           <button type="submit" id="go">Verify it</button>
+          <p class="field-hint" id="hint">
+            Try our own log:
+            <a href="?log=https://capsule-phi-blond.vercel.app/decision-log.jsonl"
+              >capsule-phi-blond.vercel.app/decision-log.jsonl</a
+            >.
+          </p>
         </form>
-        <p class="caveat" id="hint">
-          Try our own log:
-          <a href="?log=https://capsule-phi-blond.vercel.app/decision-log.jsonl"
-            >capsule-phi-blond.vercel.app/decision-log.jsonl</a
-          >.
-        </p>
       </header>
 
       <section id="trace" aria-labelledby="trace-h">

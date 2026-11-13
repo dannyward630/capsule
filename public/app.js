@@ -1,76 +1,101 @@
 /**
- * The page controller.
+ * The owner's record.
  *
- * It decides which record to show and asks the renderers to draw it. It does
- * not know the shape of a proof payload; that is the data layer's business.
+ * The controller's whole job: fetch a proof, turn it into props, hand the
+ * props to the section components, and mount what they return. It does not
+ * know the shape of a proof payload — `lib/compose.js` does — and it does not
+ * build markup — `components/` does.
  */
 import { fetchOurProof, fetchPublishedProof, logUrlFromLocation } from "./lib/api.js";
 import {
-  renderCost,
-  renderRecord,
-  renderSession,
-  renderSubstitutions,
-  renderSurfaces,
-  renderVerification,
-} from "./lib/render.js";
+  Callout,
+  RecordList,
+  SessionBar,
+  SurfaceGrid,
+  failed,
+  mount,
+  showSection,
+} from "./components/index.js";
+import { CostPanel, SubstitutionList, VerificationPanel } from "./components/sections.js";
+import {
+  costProps,
+  recordProps,
+  sessionProps,
+  substitutionProps,
+  surfaceProps,
+  verificationProps,
+} from "./lib/compose.js";
 
-function show(id, visible) {
-  const node = document.getElementById(id);
-  if (node) node.hidden = !visible;
+/**
+ * The one asymmetry in the product, said on the page that shows the evidence.
+ */
+function asymmetry() {
+  return Callout({
+    body:
+      "A payment leaves a transaction, so anyone can re-read it — that is what the table " +
+      "below does, at the moment you loaded this page. A refusal leaves nothing behind: it " +
+      "exists in the signed log and in the Passport's error code, and that is where it stops. " +
+      "That asymmetry is exactly why the refusals are the valuable half and also the unproven " +
+      "half: nothing else records what an agent was refused.",
+  });
 }
 
-function setTitle(text) {
-  document.title = text;
+function renderAll(proof) {
+  mount("session-slot", SessionBar(sessionProps(proof)));
+
+  const record = recordProps(proof);
+  const count = document.getElementById("record-count");
+  if (count) count.textContent = record.countLabel;
+  mount("record-body", RecordList(record));
+
+  mount("cost-body", CostPanel(costProps(proof)));
+
+  const substitutions = substitutionProps(proof);
+  const subsCount = document.getElementById("subs-count");
+  if (subsCount) subsCount.textContent = substitutions.countLabel;
+  mount("subs-body", SubstitutionList(substitutions));
+
+  mount("verify-body", `${asymmetry()}${VerificationPanel(verificationProps(proof))}`);
+
+  mount("surfaces-body", SurfaceGrid(surfaceProps(proof).cards));
 }
 
 function fail(message) {
-  const body = document.getElementById("record-body");
-  if (body) {
-    body.innerHTML = `<div class="state"><h3>The record could not be loaded</h3><p>${message}</p></div>`;
-  }
-  for (const id of ["cost-body", "subs-body", "verify-body"]) {
-    const node = document.getElementById(id);
-    if (node) node.innerHTML = "";
-  }
+  mount(
+    "record-body",
+    failed("The record could not be loaded", message, {
+      onRetry: () => window.location.reload(),
+    }),
+  );
+  for (const id of ["cost-body", "subs-body", "verify-body"]) mount(id, "");
+  showSection("cost", false);
+  showSection("substitutions", false);
 }
 
 async function main() {
   const publishedLog = logUrlFromLocation();
 
   if (publishedLog) {
-    setTitle("Capsule — verifying a published record");
+    document.title = "Capsule — verifying a published record";
     document.querySelector("h1").innerHTML =
-      "A spending record, <span class=\"accent\">checked</span> by someone who did not write it.";
+      'A spending record, <span class="accent">checked</span> by someone who did not write it.';
     document.querySelector(".standfirst").innerHTML =
       "This log was published by somebody else. Capsule fetched it, checked its hash chain, " +
       "and read every payment off the chain. The owner keeps their data; nothing is stored here.";
-    show("substitutions", false);
+    showSection("substitutions", false);
     try {
-      const proof = await fetchPublishedProof(publishedLog);
-      renderSession(proof);
-      renderRecord(proof);
-      renderVerification(proof);
-      renderSurfaces(proof);
-      show("cost", false);
+      renderAll(await fetchPublishedProof(publishedLog));
     } catch (error) {
       fail(error instanceof Error ? error.message : String(error));
     }
     return;
   }
 
-  setTitle("Capsule — your agent's spending record");
+  document.title = "Capsule — your agent's spending record";
   try {
-    const proof = await fetchOurProof();
-    renderSession(proof);
-    renderRecord(proof);
-    renderCost(proof);
-    renderSubstitutions(proof);
-    renderVerification(proof);
-    renderSurfaces(proof);
+    renderAll(await fetchOurProof());
   } catch (error) {
     fail(error instanceof Error ? error.message : String(error));
-    show("cost", false);
-    show("substitutions", false);
   }
 }
 
