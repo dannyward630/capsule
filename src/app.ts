@@ -27,6 +27,7 @@ import {
   chainFor,
   expectedBaseUnits,
   readReceipts,
+  readerFor,
   verifyStep,
   type Receipts,
 } from "./proof.js";
@@ -85,16 +86,6 @@ export function paidRoutes(config: AppConfig): RoutesConfig {
   return routes;
 }
 
-/** Cached chain reads, one per chain, shared by every request. */
-const readers = new Map<string, ChainReader>();
-function readerFor(chain: SettlementChain): ChainReader {
-  const existing = readers.get(chain.id);
-  if (existing) return existing;
-  const reader = new ChainReader(chain);
-  readers.set(chain.id, reader);
-  return reader;
-}
-
 /**
  * Checks every paid step of a record against the chain.
  *
@@ -110,18 +101,20 @@ export async function checkRecord(
 }> {
   const chain = chainFor(receipts.chain.network);
   const reader = readerFor(chain);
+  const paid = receipts.steps.filter((step) => step.outcome === "paid");
+  // The head does not depend on the receipts, so it is asked for first and
+  // read while the receipts are on the way.
+  if (paid.length) reader.prewarm();
   const checks = await Promise.all(
-    receipts.steps
-      .filter((step) => step.outcome === "paid")
-      .map((step) =>
-        verifyStep(
-          step,
-          chain,
-          expectedBaseUnits(step.price_usd, chain),
-          receipts.payer_address,
-          reader,
-        ),
+    paid.map((step) =>
+      verifyStep(
+        step,
+        chain,
+        expectedBaseUnits(step.price_usd, chain),
+        receipts.payer_address,
+        reader,
       ),
+    ),
   );
   return {
     checks,

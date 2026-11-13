@@ -5,8 +5,9 @@
  * The proof is the two, compared.
  *
  * The chain is read through a small cache: a mined transaction's receipt never
- * changes, so it is read once and kept; the head block is read once per
- * request and shared by every check.
+ * changes, so it is read once and kept; the head block moves, so it is read
+ * again after a short time and every check is made against a head that is
+ * current rather than one that was frozen when the reader was built.
  */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -214,35 +215,136 @@ async function rpc<T>(url: string, method: string, params: unknown[]): Promise<T
 }
 
 /**
+ * How long a head block is trusted before it is read again.
+ *
+ * The head moves, so a head that was read an hour ago is not a fact about
+ * the chain now: it is a fact about the chain then. Thirty seconds is about
+ * fifteen Base blocks, which is short enough that a confirmation count is
+ * never hours out of date and long enough that the head is read once per
+ * request rather than once per step.
+ */
+const HEAD_TTL_MS = 30_000;
+
+/**
  * Reads the chain, with a cache.
  *
  * A mined transaction's receipt is immutable, so it is fetched once and kept.
- * The head block is fetched once per request and shared by every check, which
- * is what made the old code do two network round trips per paid step.
+ * The head block is read once and kept for a short time, because it moves.
+ *
+ * Both caches are shared: one reader per chain per process, so the same
+ * receipt is never read twice, whether the request that needs it is for our
+ * own record or for somebody else's.
  */
 export class ChainReader {
-  private readonly receipts = new Map<string, ChainReceipt | null>();
+  /** The mined receipts, keyed by transaction hash. */
+  private readonly receipts = new Map<string, ChainReceipt>();
+  /** The reads in flight, so two callers ask the chain once, not twice. */
+  private readonly reading = new Map<string, Promise<ChainReceipt | null>>();
   private headBlock: number | null = null;
+  private headAt = 0;
+  private headReading: Promise<number> | null = null;
 
-  constructor(private readonly chain: SettlementChain) {}
+  /**
+   * @param chain the chain to read
+   * @param options `headTtlMs` shortens the head's life, which is what the
+   *   tests use to see the head move without waiting half a minute.
+   */
+  constructor(
+    private readonly chain: SettlementChain,
+    private readonly options: { headTtlMs?: number } = {},
+  ) {}
 
+  /** How long a head block is trusted before it is read again. */
+  private get headTtlMs(): number {
+    return this.options.headTtlMs ?? HEAD_TTL_MS;
+  }
+
+  /**
+   * The current head block.
+   *
+   * A head that is still inside its TTL is answered from the cache. One that
+   * has expired is read again, and the read is shared: concurrent callers
+   * wait on the same round trip instead of making one each.
+   */
   async head(): Promise<number> {
-    if (this.headBlock !== null) return this.headBlock;
+    if (this.headBlock !== null && Date.now() - this.headAt < this.headTtlMs) {
+      return this.headBlock;
+    }
+    if (!this.headReading) {
+      const read = this.readHead().finally(() => {
+        this.headReading = null;
+      });
+      this.headReading = read;
+      // The read is handled here as well, so a caller that only warms the
+      // head and never waits for it cannot leave a rejection unhandled. The
+      // caller that does wait still sees the failure.
+      read.catch(() => {});
+    }
+    return this.headReading;
+  }
+
+  /**
+   * Starts the head read without waiting for it.
+   *
+   * Every check needs the head, and the head does not depend on the receipts,
+   * so the two are asked for at the same time rather than one after the
+   * other. On a cold reader that is one round trip instead of two.
+   */
+  prewarm(): void {
+    void this.head().catch(() => {});
+  }
+
+  private async readHead(): Promise<number> {
     const block = await rpc<string>(this.chain.rpcUrl, "eth_blockNumber", []);
     this.headBlock = Number.parseInt(block, 16);
+    this.headAt = Date.now();
     return this.headBlock;
   }
 
+  /**
+   * The receipt of a transaction.
+   *
+   * A receipt that exists is mined and immutable, so it is kept forever. A
+   * receipt that does not exist is *not* kept: the chain answers null for a
+   * transaction that has not been mined yet, and holding on to that answer
+   * would let us say "not found on chain" about a payment that simply had
+   * not landed when we looked. It is read again next time.
+   */
   async receipt(hash: string): Promise<ChainReceipt | null> {
-    if (this.receipts.has(hash)) return this.receipts.get(hash) ?? null;
-    const receipt = await rpc<ChainReceipt | null>(
+    const mined = this.receipts.get(hash);
+    if (mined) return mined;
+    const inFlight = this.reading.get(hash);
+    if (inFlight) return inFlight;
+    const read = rpc<ChainReceipt | null>(
       this.chain.rpcUrl,
       "eth_getTransactionReceipt",
       [hash],
     );
-    this.receipts.set(hash, receipt);
-    return receipt;
+    this.reading.set(hash, read);
+    try {
+      const receipt = await read;
+      if (receipt) this.receipts.set(hash, receipt);
+      return receipt;
+    } finally {
+      this.reading.delete(hash);
+    }
   }
+}
+
+/**
+ * The chain readers, one per chain, shared by every route and every request.
+ *
+ * This is the whole reason the third-party path and our own page do not read
+ * the same transaction twice: there is one cache, and both paths use it.
+ */
+const readers = new Map<string, ChainReader>();
+
+export function readerFor(chain: SettlementChain): ChainReader {
+  const existing = readers.get(chain.id);
+  if (existing) return existing;
+  const reader = new ChainReader(chain);
+  readers.set(chain.id, reader);
+  return reader;
 }
 
 export type CheckOutcome = "confirmed" | "mismatch" | "unavailable";
