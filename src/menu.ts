@@ -13,8 +13,7 @@
  * thing that actually enforces it.
  */
 import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { REPO_ROOT } from "./proof.js";
+import { MENU_PATH } from "./paths.js";
 
 export interface MenuEntry {
   id: string;
@@ -41,8 +40,6 @@ export interface Menu {
   chain: string;
   endpoints: MenuEntry[];
 }
-
-export const MENU_PATH = path.join(REPO_ROOT, "docs", "menu.json");
 
 export async function loadMenu(): Promise<Menu> {
   const raw = await readFile(MENU_PATH, "utf8");

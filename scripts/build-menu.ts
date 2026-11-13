@@ -10,7 +10,7 @@ import { execFile } from "node:child_process";
 import { writeFile, mkdir } from "node:fs/promises";
 import { promisify } from "node:util";
 import path from "node:path";
-import { REPO_ROOT } from "../src/proof.js";
+import { REPO_ROOT } from "../src/paths.js";
 import { BASE_MAINNET } from "../src/chains.js";
 
 const exec = promisify(execFile);

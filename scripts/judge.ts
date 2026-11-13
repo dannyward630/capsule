@@ -8,7 +8,7 @@
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { REPO_ROOT } from "../src/proof.js";
+import { REPO_ROOT } from "../src/paths.js";
 
 const DEPLOYED = (
   process.env.VERIFIER_BASE_URL ?? "https://capsule-phi-blond.vercel.app"

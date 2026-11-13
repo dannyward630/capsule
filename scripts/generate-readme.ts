@@ -9,7 +9,8 @@
  */
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { REPO_ROOT, type Receipts } from "../src/proof.js";
+import { type Receipts } from "../src/proof.js";
+import { REPO_ROOT } from "../src/paths.js";
 
 const BEGIN = "<!-- BEGIN:GENERATED -->";
 const END = "<!-- END:GENERATED -->";

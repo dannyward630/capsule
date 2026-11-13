@@ -23,7 +23,6 @@ import { verifyPublishedLog } from "./verify-log.js";
 import { sellerRouter } from "./seller.js";
 import {
   ChainReader,
-  REPO_ROOT,
   chainFor,
   expectedBaseUnits,
   readReceipts,
@@ -31,6 +30,7 @@ import {
   verifyStep,
   type Receipts,
 } from "./proof.js";
+import { PUBLIC_DIR, REPO_ROOT } from "./paths.js";
 
 function env(key: string, fallback = ""): string {
   return (process.env[key] ?? "").trim() || fallback;
@@ -446,7 +446,7 @@ export function createApp(config: AppConfig = readConfig()) {
     }
   });
 
-  app.use(express.static(path.join(REPO_ROOT, "public")));
+  app.use(express.static(PUBLIC_DIR));
 
   return app;
 }

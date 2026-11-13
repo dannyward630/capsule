@@ -14,7 +14,7 @@ import { fetchPublishedKeys, signLog } from "../src/attest.js";
 import { buildArtifact } from "../src/artifact.js";
 import { loadMenu } from "../src/menu.js";
 import { chainByName, DEFAULT_CHAIN_ID } from "../src/chains.js";
-import { REPO_ROOT } from "../src/proof.js";
+import { REPO_ROOT } from "../src/paths.js";
 
 const DID = process.env.KPASS_AGENT_DID ?? "did:kite:ind-akoladefatoki108:capsule-agent";
 const TASK =

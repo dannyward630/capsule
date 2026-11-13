@@ -27,7 +27,7 @@
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { DecisionLog } from "../src/log.js";
-import { REPO_ROOT } from "../src/proof.js";
+import { REPO_ROOT } from "../src/paths.js";
 import type { Receipts } from "../src/proof.js";
 
 interface Run {

@@ -9,7 +9,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { DecisionLog, type LogRecord } from "./log.js";
 import { buildReceipts } from "./records.js";
-import { REPO_ROOT, type LogSession, type Receipts } from "./proof.js";
+import { type LogSession, type Receipts } from "./proof.js";
+import { REPO_ROOT } from "./paths.js";
 import type { SettlementChain } from "./chains.js";
 import type { Menu } from "./menu.js";
 

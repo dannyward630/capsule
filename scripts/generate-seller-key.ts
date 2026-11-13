@@ -8,7 +8,7 @@
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { REPO_ROOT } from "../src/proof.js";
+import { REPO_ROOT } from "../src/paths.js";
 
 const KEY_PATH = path.join(REPO_ROOT, ".secrets", "seller.key");
 const PUBLIC_PATH = path.join(REPO_ROOT, "docs", "seller.json");

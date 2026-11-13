@@ -7,7 +7,8 @@
  */
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { REPO_ROOT, type Receipts } from "../src/proof.js";
+import { type Receipts } from "../src/proof.js";
+import { REPO_ROOT } from "../src/paths.js";
 
 async function main() {
   const receiptsPath = path.join(REPO_ROOT, "docs", "receipts.json");

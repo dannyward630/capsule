@@ -8,7 +8,8 @@
  */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { REPO_ROOT, type Receipts } from "../src/proof.js";
+import { type Receipts } from "../src/proof.js";
+import { REPO_ROOT } from "../src/paths.js";
 import { DecisionLog } from "../src/log.js";
 import { fetchPublishedKeys, verifyAttestation, type Attestation } from "../src/attest.js";
 

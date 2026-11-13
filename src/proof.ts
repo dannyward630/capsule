@@ -10,13 +10,9 @@
  * current rather than one that was frozen when the reader was built.
  */
 import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { toBaseUnits } from "./units.js";
 import { chainForNetwork, type SettlementChain } from "./chains.js";
-
-const HERE = path.dirname(new URL(import.meta.url).pathname);
-export const REPO_ROOT = path.resolve(HERE, "..");
-export const RECEIPTS_PATH = path.join(REPO_ROOT, "docs", "receipts.json");
+import { RECEIPTS_PATH } from "./paths.js";
 
 /** keccak256("Transfer(address,address,uint256)") */
 const TRANSFER_TOPIC =
