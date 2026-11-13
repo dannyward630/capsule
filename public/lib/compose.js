@@ -8,7 +8,7 @@
  * The rule that makes the component library reusable: nothing in
  * `components/` imports this file, and nothing in this file builds markup.
  */
-import { host, money, path, plainError } from "./format.js";
+import { ageOf, host, money, path, plainError } from "./format.js";
 
 function number(value) {
   const parsed = Number(value ?? 0);
@@ -172,8 +172,11 @@ export function verificationProps(proof) {
     ok: proof.all_payments_verified_on_chain === true,
     head: proof.chain?.symbol ?? "USDC",
     network: proof.chain?.network ?? "",
+    // When the chain was read. The answer may be handed to a reader a little
+    // after it was made, so the moment is shown rather than implied.
+    checkedAt: ageOf(proof.checked_at ?? null),
     note: checks.length
-      ? `${checks.length} payment${checks.length === 1 ? "" : "s"} re-read at request time`
+      ? `${checks.length} payment${checks.length === 1 ? "" : "s"} read from the chain`
       : "no payments",
     rows: checks.map((check) => ({
       merchant: check.merchant ?? "",

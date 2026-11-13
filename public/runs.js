@@ -71,8 +71,8 @@ function renderCompare(runs) {
      <p class="caveat">
       The <strong>$0.05</strong> endpoint that the Passport refused under the tight cap was
       <strong>paid</strong> under the loose one. The refusals were not a broken agent; they
-      were the limit, doing its job. Every figure above is re-read from the chain when this
-      page loads.
+      were the limit, doing its job. These figures are the record of what happened; each run's
+      own page carries the chain checks, read from the chain.
     </p>`,
   );
 }

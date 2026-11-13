@@ -137,7 +137,12 @@ export async function buildProof(
   return {
     status: "verified",
     run_id: options.run_id ?? "recorded",
+    // When the run happened. This does not move.
     generated_at: receipts.generated_at,
+    // When the chain was read for this answer. This moves every time the
+    // answer is made, and it is the honest answer to "how old is this
+    // check?" — `generated_at` would say "as old as the run".
+    checked_at: new Date().toISOString(),
     task: receipts.task,
     claim: receipts.claim,
     session: receipts.session,
@@ -157,7 +162,7 @@ export async function buildProof(
     chain_checks: checks,
     all_payments_verified_on_chain: allVerified,
     note:
-      "chain_checks are re-read from the chain at request time; they are not a copy of the receipts.",
+      "chain_checks are read from the chain when this answer is made; they are not a copy of the receipts. checked_at says when.",
   };
 }
 
@@ -345,7 +350,13 @@ export function createApp(config: AppConfig = readConfig()) {
       run_id: id,
       contrast: id === "recorded" ? (receipts.contrast ?? null) : null,
     });
-    response.set("Cache-Control", "public, max-age=30, stale-while-revalidate=300");
+    // Thirty seconds, and no more. The edge may hand this answer to a reader
+    // for that long, which is why the answer carries the time it was made
+    // and the page says so. `stale-while-revalidate` is deliberately absent:
+    // it would let a shared cache keep serving a chain check for five more
+    // minutes after its window closed, which is a longer time than the
+    // reader's own head is trusted for.
+    response.set("Cache-Control", "public, max-age=30");
     return response.json(proof);
   });
 
@@ -418,8 +429,11 @@ export function createApp(config: AppConfig = readConfig()) {
     try {
       const proof = await verifyPublishedLog(logUrl, { budgetUsd: budget });
       // A short-lived cache: the chain check for a mined transaction does not
-      // change, and this endpoint makes network calls.
-      response.set("Cache-Control", "public, max-age=30, stale-while-revalidate=300");
+      // change, and this endpoint makes network calls. Thirty seconds, and no
+      // more — the same window the reader's own head is trusted for, and the
+      // answer carries the time it was made. `stale-while-revalidate` is
+      // deliberately absent, for the same reason.
+      response.set("Cache-Control", "public, max-age=30");
       return response.json(proof);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

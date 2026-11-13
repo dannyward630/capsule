@@ -64,6 +64,8 @@ export interface PublishedProof {
   status: "verified" | "partially_verified" | "unverified";
   source: string;
   fetched_from: string;
+  /** When the chain was read for this answer. */
+  checked_at: string;
   records: number;
   /** The chain the record settled on, so a reader can follow the hashes. */
   chain: {
@@ -345,6 +347,10 @@ export async function verifyPublishedLog(
     status: allConfirmed && chainState !== "broken" ? "verified" : "partially_verified",
     source: logUrl,
     fetched_from: fetchedFrom,
+    // When the chain was read for this answer. A third party's log may be
+    // days old; this says how old the *check* is, which is a different
+    // question and the one a reader actually asks.
+    checked_at: new Date().toISOString(),
     records: records.length,
     chain: {
       network: firstChain.network,

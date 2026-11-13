@@ -165,7 +165,7 @@ export function SubstitutionList(props) {
  * Verification: the chain checks, the log, the identity, the payer.
  *
  * @param {{
- *   ok: boolean, head: string, network: string, note: string,
+ *   ok: boolean, head: string, network: string, note: string, checkedAt: string,
  *   rows: Array<{merchant: string, tx: string, explorer: string, block: string|number, confirmations: string|number, recipient: string, outcome: string}>,
  *   log: {algorithm: string, records: number, head: string, intact: boolean} | null,
  *   attestation: {did: string, address: string, signature: string} | null,
@@ -244,9 +244,10 @@ export function VerificationPanel(props) {
     ${raw(
       Caveat({
         body:
-          "These rows are re-read from the chain when you load this page, not served from a " +
-          "cached copy. Editing an earlier decision in the log breaks every link after it, and " +
-          "the verifier says which record broke.",
+          `These rows were read from the chain ${props.checkedAt}. Every time this answer ` +
+          "is made, the chain is read again; the edge may hand you the answer it already " +
+          "made, for up to thirty seconds. Editing an earlier decision in the log breaks every " +
+          "link after it, and the verifier says which record broke.",
       }),
     )}`;
 }

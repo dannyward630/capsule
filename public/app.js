@@ -33,8 +33,8 @@ function asymmetry() {
   return Callout({
     body:
       "A payment leaves a transaction, so anyone can re-read it — that is what the table " +
-      "below does, at the moment you loaded this page. A refusal leaves nothing behind: it " +
-      "exists in the signed log and in the Passport's error code, and that is where it stops. " +
+      "below does. A refusal leaves nothing behind: it exists in the signed log and in the " +
+      "Passport's error code, and that is where it stops. " +
       "That asymmetry is exactly why the refusals are the valuable half and also the unproven " +
       "half: nothing else records what an agent was refused.",
   });

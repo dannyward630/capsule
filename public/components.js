@@ -137,7 +137,7 @@ const EXAMPLES = [
     name: "Caveat",
     props: "{ body: string }",
     example: Caveat({
-      body: "These rows are re-read from the chain when you load this page, not served from a cached copy.",
+      body: "These rows were read from the chain 12 seconds ago. Every time this answer is made, the chain is read again.",
     }),
   },
   {
@@ -145,7 +145,7 @@ const EXAMPLES = [
     props: "{ head: string, note?: string, body: string }",
     example: Panel({
       head: "USDC on eip155:8453",
-      note: "2 payments re-read at request time",
+      note: "2 payments read from the chain",
       body: '<p class="caveat" style="margin:0;padding-left:0;border:none">The panel body.</p>',
     }),
   },

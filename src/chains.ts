@@ -5,6 +5,12 @@
  * EIP-712 domain the facilitator verifies against, the explorer, and the RPC.
  * Nothing else in the codebase hard-codes a chain id or an asset address.
  */
+
+/** Reads an environment variable, falling back when it is unset or blank. */
+function env(key: string, fallback: string): string {
+  return (process.env[key] ?? "").trim() || fallback;
+}
+
 export interface SettlementChain {
   readonly id: string;
   readonly network: `eip155:${number}`;
@@ -21,11 +27,21 @@ export interface SettlementChain {
   readonly passportNative: boolean;
 }
 
+/**
+ * Base mainnet.
+ *
+ * The RPC is the one fact here that can be replaced at runtime: the public
+ * endpoint is free, rate-limited and has no service level, and a record
+ * that cannot be re-read is a record nobody can check. `BASE_RPC_URL` points
+ * the reader at a paid or self-hosted node without a code change. The chain
+ * id, the asset and the EIP-712 domain are facts about the chain and never
+ * move.
+ */
 export const BASE_MAINNET: SettlementChain = {
   id: "base",
   network: "eip155:8453",
   chainId: 8453,
-  rpcUrl: "https://mainnet.base.org",
+  rpcUrl: env("BASE_RPC_URL", "https://mainnet.base.org"),
   assetAddress: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
   assetSymbol: "USDC",
   assetDecimals: 6,

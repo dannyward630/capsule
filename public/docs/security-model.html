@@ -52,10 +52,11 @@
           <ul>
             <li>
               <strong>The payments.</strong> Each purchase carries a transaction hash. Capsule
-              re-reads the transaction from Base at the moment the proof is requested, checks
-              that a transfer of exactly the expected amount of USDC was made, and checks that
-              the sender was the session's own wallet. A reader can do the same with
-              <code>curl</code> and a block explorer.
+              reads the transaction from Base when it makes the proof, checks that a transfer of
+              exactly the expected amount of USDC was made, and checks that the sender was the
+              session's own wallet. A reader can do the same with <code>curl</code> and a block
+              explorer. The answer carries the moment the chain was read, so a reader can see how
+              old it is.
             </li>
             <li>
               <strong>The record's integrity.</strong> The decision log is a keccak-256 hash

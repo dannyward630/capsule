@@ -20,6 +20,31 @@ export function host(url) {
   }
 }
 
+/**
+ * How long ago a check was made, in words.
+ *
+ * The chain checks are made at a moment, and the answer may be handed to a
+ * reader a little later. Saying how much later is the difference between a
+ * claim and a fact, so the moment is never hidden.
+ *
+ * @param {string|null} iso when the check was made
+ * @param {number} [now] the current time, in milliseconds
+ * @returns {string}
+ */
+export function ageOf(iso, now = Date.now()) {
+  if (!iso) return "at an unknown time";
+  const then = Date.parse(iso);
+  if (!Number.isFinite(then)) return "at an unknown time";
+  const seconds = Math.max(0, Math.round((now - then) / 1000));
+  if (seconds < 5) return "a moment ago";
+  if (seconds < 90) return `${seconds} seconds ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 90) return `${minutes} minutes ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 36) return `${hours} hours ago`;
+  return `${Math.round(hours / 24)} days ago`;
+}
+
 /** The path of a URL, or the URL itself. */
 export function path(url) {
   try {
