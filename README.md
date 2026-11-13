@@ -20,7 +20,7 @@ the limit is a measurement and not an assertion.
 | **What the limit cost** | **$0.051 of evidence against a $0.0025 budget — 20.4×** |
 | **Proof it was the limit** | The same $0.05 endpoint was **refused** at the $0.002 cap and **paid** at the $0.06 cap, in transaction `0xd769e940…` |
 | **Who decided** | The Passport backend, in its own code. Not the agent, and not the code that wanted to spend |
-| **What is chain-verified** | Every payment, re-read from Base at request time |
+| **What is chain-verified** | Every payment, read from Base when the answer is made — `/proof.json` never serves a cached answer |
 | **What is not** | The refusals — they leave no transaction. See [the asymmetry](#the-asymmetry) |
 
 <!-- Judge-reachable surfaces -->
@@ -209,14 +209,20 @@ itself is signed with the key Kite publishes for the agent's DID.
 | --- | --- |
 | `/` | The owner's record: every attempt, what the limit cost, and the chain checks |
 | `/runs` | The experiment — the same task under two limits, one variable changed |
-| `/runs/:id` | One run, with its payments re-read from the chain |
+| `/runs/:id` | One run, with its payments read from the chain |
 | `/verify` | **The third-party path.** Paste a log URL and watch the check happen |
 | `/docs/security-model` | What Capsule does **not** prove, in our own words |
 | `/docs/format` | The log format, and a writer you can copy |
+| `/components` | The front-end library, rendered with its real props — the usage docs, executed |
 | `/proof.json` | The same facts as JSON, no account, no session |
 | `/decision-log.jsonl` | The published log itself |
 | `/examples/foreign-log.jsonl` | The same run in another format, as a worked example |
 | `/runs.json`, `/runs/:id.json` | The runs, as data |
+
+**Every proof says when the chain was read.** A payment leaves a transaction, so
+anyone can re-read it; the answer carries `checked_at`, and each page says how
+old the check is. The landing page's proof is not cached at all, so refreshing it
+always re-reads the chain.
 
 ## How the limit is enforced
 
@@ -264,8 +270,36 @@ npm install
 cp .env.example .env      # set PAY_TO to an address you control
 npm test                   # no network, no keys, no money
 npm run verify             # the checks against the live deployment
+npm run audit              # every page in a real browser, at two widths
 npm start                  # the merchant on :8080
 ```
+
+`npm run audit` is the gate worth knowing about. It loads all ten pages in
+Chromium at 1440px and 390px and checks four things each: console errors and
+failed requests, content that overflows the viewport, contrast below 4.5:1, and
+whether the page rendered the elements it is supposed to render. The last one
+is the check that matters — a page that catches its own exception and shows a
+tidy red box reports **no** console error, which is why the earlier version of
+this audit passed a broken site.
+
+## The engineering record
+
+Four documents, and each one is a different kind of honesty.
+
+| Document | What it is |
+| --- | --- |
+| [`docs/ENGINEERING-REVIEW.md`](docs/ENGINEERING-REVIEW.md) | Three passes over this codebase as a senior engineer taking it over: the structural problems, the duplication, the performance, the correctness, and what was deliberately left open |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | The architecture and the minimal production version — every layer, every endpoint, the schema for the tier we have not built, and a ledger of what is built and what is only designed |
+| [`docs/OPTIMIZATION.md`](docs/OPTIMIZATION.md) | The measured performance pass: the before and after tables, the two chain-read defects it found, and the five candidates it rejected with reasons |
+| [`docs/PROVENANCE.md`](docs/PROVENANCE.md) | How the published record came to be, including the re-chain, and exactly what did and did not change |
+
+The numbers in this file come from two places, and it is worth saying which is
+which. The run table and the cost-of-limit section are **generated** — `npm run
+readme` rebuilds them from `docs/receipts.json`, and the block is marked
+`<!-- BEGIN:GENERATED -->`. Every claim in the run, with its source of truth
+and the command that checks it, is in [`docs/CLAIMS.md`](docs/CLAIMS.md),
+which `npm run claims` regenerates. The numbers in the prose above the table
+are typed by hand and are **not** covered by that generator.
 
 To run the agent you need three things this repository cannot provide: a SERV API key, a
 Kite Passport agent with a runtime key, and a spending session approved with a passkey.
@@ -307,7 +341,7 @@ field is weakest on exactly this criterion — and so are we.
 
 | | |
 | --- | --- |
-| **Real, checkable on chain** | The two USDC transfers on Base. Block number, sender, recipient and amount are re-read from the chain by `/proof.json` at request time |
+| **Real, checkable on chain** | The two USDC transfers on Base. Block number, sender, recipient and amount are read from the chain by `/proof.json` when the answer is made, and the answer says when |
 | **Real, decided by Kite** | The refusals. The error codes are the Passport's own, and the session they came from is a session a judge can read about in the same way |
 | **Real, signed** | The decision log's head, signed with the key Kite publishes for the agent's DID |
 | **Derived by us** | The "what the limit cost" figures — they are the catalog's own prices for the endpoints the agent was refused, totalled |

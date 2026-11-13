@@ -11,13 +11,25 @@
  *   caption?: string,
  *   columnClass?: (index: number) => string,
  * }} props
- * @returns {string}
+ * @returns {import("./dom.js").Markup}
  */
 import { html } from "./dom.js";
 
 export function DataTable(props) {
-  const cell = (value) =>
-    value && typeof value === "object" && "html" in value ? value.html : String(value ?? "");
+  /**
+ * A cell's value.
+ *
+ * A cell may be plain text (which is escaped) or markup this codebase
+ * produced (which is not). The value is passed through as it is, so `html`
+ * applies the one rule to both.
+ *
+ * @param {unknown} value
+ * @returns {unknown}
+ */
+function cell(value) {
+  if (value && typeof value === "object" && "html" in value) return value;
+  return String(value ?? "");
+}
   return html`<table class="checks">
     ${props.caption
       ? html`<caption class="sr-only">${props.caption}</caption>`

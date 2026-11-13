@@ -57,7 +57,7 @@ function renderAll(proof) {
 
   mount("verify-body", `${asymmetry()}${VerificationPanel(verificationProps(proof))}`);
 
-  mount("surfaces-body", SurfaceGrid(surfaceProps(proof).cards));
+  mount("surfaces-body", SurfaceGrid(surfaceProps(proof)));
 }
 
 function fail(message) {

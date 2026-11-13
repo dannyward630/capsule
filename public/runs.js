@@ -10,8 +10,8 @@ import { DataTable, Panel, RunList, failed, mount } from "./components/index.js"
 function render(runs) {
   mount(
     "runs-body",
-    RunList(
-      runs.map((run) => ({
+    RunList({
+      runs: runs.map((run) => ({
         id: run.id,
         label: run.label,
         summary: `$${run.max_amount_per_tx} per call · $${run.budget_usd} in total · session ${
@@ -29,7 +29,7 @@ function render(runs) {
           },
         ],
       })),
-    ),
+    }),
   );
 }
 

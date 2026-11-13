@@ -26,6 +26,7 @@ import {
   TraceList,
   empty,
   failed,
+  html,
   loading,
   mount,
 } from "./components/index.js";
@@ -118,7 +119,7 @@ const EXAMPLES = [
       rows: [
         [
           "agent402.tools",
-          '<a href="https://basescan.org">0xf222835b30…</a>',
+          html`<a href="https://basescan.org" target="_blank" rel="noreferrer">0xf222835b30…</a>`,
           StatusChip({ kind: "verified", label: "confirmed" }),
         ],
         ["x402.ottoai.services", "0x9203108377…", StatusChip({ kind: "verified", label: "confirmed" })],

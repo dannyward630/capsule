@@ -13,6 +13,28 @@
  */
 
 /**
+ * Markup that is already trusted.
+ *
+ * The marker is the whole point: a plain string cannot be told apart from
+ * text that came from a log, so a template that returned a string would
+ * escape its own output the second time it was interpolated. Returning a
+ * `Markup` keeps the mark — it *is* a string, by `toString`, so it can be
+ * concatenated and assigned to `innerHTML` like any other, and it *carries*
+ * the fact that it is markup.
+ */
+class Markup {
+  /** @param {unknown} markup */
+  constructor(markup) {
+    this.html = String(markup ?? "");
+  }
+
+  /** @returns {string} */
+  toString() {
+    return this.html;
+  }
+}
+
+/**
  * Escapes text for interpolation into markup.
  *
  * @param {unknown} value
@@ -40,20 +62,42 @@ export function escape(value) {
  *
  *   html`<div>${raw(trustedMarkup)}</div>`
  *
+ * A list is interpolated as a list, not as text:
+ *
+ *   html`<ul>${rows.map((row) => html`<li>${row}</li>`)}</ul>`
+ *
+ * Each item is rendered by the same rule, so a list of trusted markup and a
+ * list of plain text can be mixed freely.
+ *
  * @param {TemplateStringsArray} strings
  * @param {...unknown} values
- * @returns {string}
+ * @returns {Markup}
  */
 export function html(strings, ...values) {
-  return strings.reduce((out, chunk, index) => {
+  const markup = strings.reduce((out, chunk, index) => {
     if (index === 0) return chunk;
-    const value = values[index - 1];
-    const rendered =
-      value && typeof value === "object" && "html" in value
-        ? String(value.html)
-        : escape(value);
-    return out + rendered + chunk;
+    return out + render(values[index - 1]) + chunk;
   }, "");
+  return new Markup(markup);
+}
+
+/**
+ * Renders one interpolated value.
+ *
+ * @param {unknown} value
+ * @returns {string}
+ */
+function render(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => render(item)).join("");
+  }
+  if (value instanceof Markup) {
+    return value.html;
+  }
+  if (value && typeof value === "object" && "html" in value) {
+    return String(value.html);
+  }
+  return escape(value);
 }
 
 /**
@@ -61,24 +105,24 @@ export function html(strings, ...values) {
  *
  * Only use it on markup this codebase produced.
  *
- * @param {string} markup
- * @returns {{html: string}}
+ * @param {unknown} markup
+ * @returns {Markup}
  */
 export function raw(markup) {
-  return { html: String(markup ?? "") };
+  return markup instanceof Markup ? markup : new Markup(markup);
 }
 
 /**
  * Puts markup into an element.
  *
  * @param {string} id
- * @param {string} markup
+ * @param {string | Markup} markup
  * @returns {boolean} whether the element was found
  */
 export function mount(id, markup) {
   const node = document.getElementById(id);
   if (!node) return false;
-  node.innerHTML = markup;
+  node.innerHTML = markup instanceof Markup ? markup.html : String(markup ?? "");
   return true;
 }
 

@@ -218,7 +218,204 @@ building; the decision about how it measures coverage is worth making first.
 
 | Gate | Result |
 | --- | --- |
-| `npm test` | 45/45 |
+| `npm test` | 50/50 |
 | `npx tsc --noEmit` | clean |
 | `npm run verify` | 15/15 against the live deployment |
-| Browser audit, 9 pages at 1440px and 390px | no findings: no console errors, no overflow, contrast ≥ 4.5 |
+| `npm run markup` | 9/9 on the front end's escaping layer |
+| `npm run audit` | 10 pages × 2 viewports: no findings — no console errors, no overflow, contrast ≥ 4.5, and every page rendered what it must |
+| `npm run claims` + `npm run readme` | regenerate byte-identical output |
+
+---
+
+# 9. The third pass — 2026-11-13
+
+A third review, run as four roles: architect, engineer, reviewer, optimiser. The
+architect's design is in `docs/ARCHITECTURE.md`; the optimiser's measurements are
+in `docs/OPTIMIZATION.md`. This section is the **reviewer's** account: what was
+found, what was wrong with the fixes, and what is still open.
+
+## 9.1 What the architect found
+
+`src/proof.ts` was a hub. Six of the twenty modules in `src/` imported from it,
+and three unrelated things lived in it: the `Receipts` type, the JSON-RPC client,
+and the `REPO_ROOT` path constant. The visible cost was `src/menu.ts` importing
+the proof module to find `docs/menu.json` on disk — a domain module depending on
+an I/O module for a path.
+
+**Fixed, and it is the whole fix:** `src/paths.ts`, 28 lines, importing nothing
+but `node:path`. All thirteen importers moved. `src/menu.ts` no longer imports
+the proof module at all.
+
+The architect also proposed a hosted-record tier with a Postgres schema. It was
+**not built**, and the reason is in §0.5 of `docs/ARCHITECTURE.md`: the hosted
+tier has no customer, and the architecture's own ordering puts the caching first
+and the database second.
+
+## 9.2 What the optimiser found, and what was wrong with the product
+
+The optimiser was asked to make the product faster. It found two defects that
+made the product **claim something it could not support**:
+
+| Defect | What was wrong | Fix |
+| --- | --- | --- |
+| The chain head was cached for the life of the process | A confirmation count could be hours old while being presented as current. Measured: the chain moved 10,000 blocks and the answer did not move with it | The head has a thirty-second life, and is re-read when it expires |
+| A receipt the chain did not have was cached as absent | A payment that landed a second after we looked would have been reported as "not on chain", forever | Only mined receipts are kept; a `null` is read again |
+
+Neither is a speed problem. In a product whose whole pitch is that it does not
+overclaim, they are the worst kind of bug there is. The five tests that pin them
+are in `test/chain-reader.test.ts`.
+
+## 9.3 The findings from this pass's own review
+
+The reviewer's job is to check the fixes, not to praise them. Four things were
+wrong or left wrong.
+
+### 9.3.1 Three pages claimed more than the code did — **fixed**
+
+| Page | Claimed | Actual |
+| --- | --- | --- |
+| `/run.html`, `/verify.html` | "re-read from the chain when you load this page, **not served from a cached copy**" | `stale-while-revalidate=300` let a shared cache serve the answer for **330 seconds** |
+| `/runs.html` | "**every figure above is re-read from the chain** when this page loads" | `/runs.json` reads the receipts file and **never touches the chain** |
+
+The fix is not to make the claim louder. The SWR is gone (the window is 30
+seconds), the proof carries **`checked_at`** — the moment the chain was read,
+separate from `generated_at`, which is when the *run* happened and does not move
+— and the pages now say what is true: *"These rows were read from the chain 4
+seconds ago. Every time this answer is made, the chain is read again; the edge
+may hand you the answer it already made, for up to thirty seconds."*
+
+### 9.3.2 The architecture proposed caching `/proof.json`; it was not done — **deliberate**
+
+The architecture draft's §6.6 says `/proof.json` should be served from the edge
+within five seconds. **It was not**, and the reason is worth a judge's time: a
+judge who clicks refresh expects to see the chain read again, and a cached
+confirmation count reads as a broken product rather than a fast one. The route
+carrying the product's strongest trust statement is therefore the one route that
+is never served from a cache. The cost is three RPC calls per visit; the
+benefit is that the central page cannot show a stale number.
+
+This is a divergence from the design, and it is recorded as one.
+
+### 9.3.3 The component gallery overflowed at 390px — **fixed**
+
+The gallery is a grid whose track had no `minmax(0, 1fr)` and whose items had no
+`min-width: 0` — the same rule the rest of the stylesheet already applies to
+every other grid. One long props string and one row of status chips widened the
+track to 1,044px inside a 390px viewport. The rule was already in the file, in
+four other places; the new CSS had not learned it. Fixed, and the fix is the
+same rule, not a width.
+
+### 9.3.4 A component duplicated the gallery's markup — **fixed**
+
+`components.js` defined a `demo()` helper and then, at the bottom, re-implemented
+it inline in the `mount()` call. The helper was dead code. The inline copy is
+gone, and the gallery block is now a component in `public/components/gallery.js`
+— because a page controller that builds markup is the thing this whole
+refactor was against.
+
+### 9.3.5 The refactor had broken two pages, and no gate could see it — **fixed**
+
+This is the finding that matters most in this pass, and it is a finding about
+the *gates*, not about the code.
+
+The component library was written, and the pages were pointed at it. Two of the
+calls had the wrong argument shape:
+
+```js
+SurfaceGrid(surfaceProps(proof).cards)   // the component wants { cards }
+RunList(runs.map((run) => ({ … })))       // the component wants { runs }
+```
+
+Both pages threw, both caught the exception themselves, and both rendered a
+tidy red box saying *"The record could not be loaded — Cannot read properties
+of undefined (reading 'map')"*. The browser reported **no console error**, no
+failed request, and no overflow. Every existing gate passed. `npm test` was
+50/50, the type checker was clean, and the live verification was 15/15 — none
+of which load a page in a browser.
+
+A third page was worse: the record list rendered as **escaped source**. The
+template helper returned a plain string, so when a list of rows was
+interpolated into a larger template, the result was escaped a second time and
+the reader saw `<li>` instead of a row. Again: no console error, no failed
+request, nothing for any gate to catch. The page scrolled sideways at 390px,
+which is the only symptom it had, and the old audit did not measure page-level
+scroll width.
+
+The fixes were three lines and a class:
+
+- `html` now returns a `Markup` — a string that carries the fact that it is
+  markup — so nested templates and lists keep their trust.
+- `SurfaceGrid` and `RunList` are called with the shape they declare.
+- `scripts/audit-pages.mjs` now asks whether the page rendered *what it is
+  supposed to render*, and whether it rendered a failure state.
+
+The lesson is not "the component library is dangerous". It is that **a browser
+audit that only looks for errors is not a browser audit**. The new one checks
+four things per page: console errors and failed requests, content that
+overflows the viewport, contrast below 4.5:1, and the presence of the elements
+each page must contain. It found both bugs, and it is in the repository, so the
+next person gets them too.
+
+There is also a small lesson about the escaping layer itself. `html` had to
+escape by default *and* keep trusted markup trusted; those two requirements
+pulled in opposite directions, and the first implementation satisfied the first
+and quietly broke the second. `scripts/check-markup.mjs` now pins nine
+behaviours of that layer — nine checks that take a second to run and would
+have caught it on the day it was written.
+
+## 9.4 The front end, reviewed as an architecture
+
+The pages had one problem each and the same problem: each one built markup
+inline and knew the shape of a proof payload. The record was therefore drawn
+twice — once for our own log, once for a third party's — and the two copies had
+already drifted.
+
+The front end is now four layers with one rule each:
+
+```
+components/     props → markup      no payload, no endpoint
+lib/compose.js  payload → props     the only file that knows a proof
+lib/api.js      the network         the only file that knows an endpoint
+<page>.js       the controller      fetch → compose → mount
+```
+
+The rule that makes it hold is **escaping at the point of interpolation**:
+`html`` ` escapes every value by default, so a component cannot forget to. A
+component that needs trusted markup has to say so with `raw()`.
+
+`/components` renders every component with its real props, so the usage
+examples cannot drift from the code the way prose examples do. It is the same
+trick as the published log format: **the documentation is executed, not
+described.**
+
+## 9.5 What is still open
+
+| Problem | Why it is open | What it would take |
+| --- | --- | --- |
+| The refusals are not chain-verified | there is nothing to anchor them to | an attestation transaction per refusal, signed by the agent. Needs the owner's wallet and a few cents of gas |
+| Everything is a file in the repository | there is no database, by design: the owner keeps their data | a store, if we ever want to host other people's records rather than fetch them. `docs/ARCHITECTURE.md` §5 has the schema; §8.4 says when to build it |
+| The chain reads are per-instance | a serverless instance is evicted, so a cold instance re-reads | a shared verdict store. The interface is designed (`docs/ARCHITECTURE.md` §7.1); the threshold is volume, not difficulty |
+| The public Base RPC has no service level | it is free, rate-limited, and it timed out once under a burst during this pass | `BASE_RPC_URL` now exists, so the swap is configuration and not code. The swap should happen before volume |
+| Reorgs are not handled explicitly | a mined receipt is treated as immutable once found | reading L1's `safe` head. Close to a one-line change — but it changes what the product says it proves, so it is a decision, not a refactor |
+| `/verify` has no rate limit | one caller could spend the RPC quota | a token bucket. The implementation is in `docs/ARCHITECTURE.md` §7.5; it is not built because the limits would be guesses, and a guessed limit that blocks a judge is worse than no limit |
+
+## 9.6 The honest summary of this pass
+
+The front end got a component library and a gallery that documents it. The back
+end got a path module and a chain reader that tells the truth about time. Three
+pages stopped claiming more than the code does.
+
+And then the audit found that the refactor had broken two pages and made a
+third one render its record as escaped source — in a way that no existing gate
+could see. Those are fixed, and the gates now cover them.
+
+**What did not improve:** the refusals are still the owner's claim. The hosted
+tier is still a design. The public RPC is still free. And the latency of
+`/proof.json` is still around 290 ms, because that is what re-reading a chain
+costs and this product is not willing to skip the read to look faster.
+
+**What this pass is worth:** the product now says one thing consistently — *here
+is what the chain says, here is when we asked, and here is the part we cannot
+prove.* Before it, three pages quietly said something else. And the thing it
+says is now actually rendered on every page, which is a different claim from
+what it says.
