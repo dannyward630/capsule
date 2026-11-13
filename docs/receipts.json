@@ -29,25 +29,31 @@
     "algorithm": "keccak-256",
     "path": "docs/decision-log.jsonl",
     "records": 4,
-    "head": "0x6ab76d14fe58ea60c1f5f9a0cf9a4319ad9a37ce7c888c464f74a8ea848e581e",
+    "head": "0xd6af6f6b610a8f1410ed38ea66742a3bd772fbc05543164c51f8779655c08839",
     "verified": true
   },
   "attestation": {
     "domain": "capsule.decision-log.v1",
-    "message": "capsule.decision-log.v1\ndid:did:kite:ind-akoladefatoki108:capsule-agent\nhead:0x6ab76d14fe58ea60c1f5f9a0cf9a4319ad9a37ce7c888c464f74a8ea848e581e\nrecords:4\nchain:eip155:8453",
-    "head": "0x6ab76d14fe58ea60c1f5f9a0cf9a4319ad9a37ce7c888c464f74a8ea848e581e",
+    "message": "capsule.decision-log.v1\ndid:did:kite:ind-akoladefatoki108:capsule-agent\nhead:0xd6af6f6b610a8f1410ed38ea66742a3bd772fbc05543164c51f8779655c08839\nrecords:4\nchain:eip155:8453",
+    "head": "0xd6af6f6b610a8f1410ed38ea66742a3bd772fbc05543164c51f8779655c08839",
     "did": "did:kite:ind-akoladefatoki108:capsule-agent",
     "key_id": "did:kite:ind-akoladefatoki108:capsule-agent#jkt:7b8ca731257ec4b3",
     "address": "0x5512caEe289ef639CD3181487F93920C5F544868",
     "algorithm": "EIP-191 secp256k1 (personal_sign)",
-    "signature": "0x74e5c23572af270ec3b53a56a5143766e672882a8c1a8cb65e05ba7a2f8cdd2826160da61d70823432c1d8c87a26df387fce9101d3805f5e138824d10f5520921b",
-    "signed_at": "2026-11-12T11:02:45.931Z"
+    "signature": "0x7a7b4bcec901d36a6f087b619db01039514202d4eeb1ffa8df852255950ebcd7229d60ad96c79a5685b2b8ff95599bf52e577f0035a1314815d8e39bf9e3eb1f1b",
+    "signed_at": "2026-11-12T13:28:40.686Z"
   },
   "published_key": {
     "key_id": "did:kite:ind-akoladefatoki108:capsule-agent#jkt:7b8ca731257ec4b3",
     "pub_key": "secp256k1:AwgdUOmm5ym00U/Dk+0tUA4wURALviMLqlXMuBa9kmpg",
     "address": "0x5512caEe289ef639CD3181487F93920C5F544868",
     "active": true
+  },
+  "serv": {
+    "model": null,
+    "calls": [],
+    "answer": null,
+    "note": "This run was recorded before the transport log was captured. The model's own reasoning for each attempt is in the signed decision log, on every step of the record."
   },
   "counterfactual": {
     "facts": [
@@ -151,7 +157,9 @@
       "tx_hash": "0xf222835b302b905f6d00c5e620cfc59a7b97c1f1d9672eb4c9cdd682e3ecde4e",
       "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
       "spent_total_after": "0.001",
-      "paid_at": "2026-11-12T05:50:23.053Z"
+      "paid_at": "2026-11-12T05:50:23.053Z",
+      "fact": "current ETH price and 24h change",
+      "reason": "This purchase adds the fact to cover: current ETH price and 24h change, which is the best available direct match within budget."
     },
     {
       "n": 1,
@@ -165,7 +173,9 @@
       "tx_hash": "0x92031083779833938768c700c2a23a06d340ee08d7c5b124d65939f5f72c2920",
       "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
       "spent_total_after": "0.002",
-      "paid_at": "2026-11-12T05:50:43.982Z"
+      "paid_at": "2026-11-12T05:50:43.982Z",
+      "fact": "sentiment and recent headlines",
+      "reason": "Buys the best available partial-coverage endpoint for the fact_to_cover: sentiment and recent headlines. It adds recent crypto news context that can support a cautious ETH assessment, while staying within budget."
     },
     {
       "n": 2,
@@ -179,7 +189,9 @@
       "tx_hash": null,
       "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
       "spent_total_after": "0.002",
-      "paid_at": null
+      "paid_at": null,
+      "fact": "search interest and trend over the last month",
+      "reason": "This purchase best covers the fact to_cover: search interest and trend over the last month. It directly provides Google Trends interest over time for ETH across the last 30 days, which is the strongest match for assessing month-long search interest and trend."
     },
     {
       "n": 3,
@@ -193,7 +205,9 @@
       "tx_hash": null,
       "session_id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
       "spent_total_after": "0.002",
-      "paid_at": null
+      "paid_at": null,
+      "fact": "volatility and drawdown",
+      "reason": "This endpoint best adds the requested fact_to_cover, because live funding, open interest, liquidations, and long/short ratios are the most direct proxy for ETH volatility and drawdown risk within budget."
     }
   ],
   "totals": {
@@ -233,7 +247,7 @@
       "algorithm": "keccak-256",
       "path": "docs/decision-log.jsonl",
       "records": 3,
-      "head": "0x279e1752b94b75ef850d692c552a5fc3a3d6ddc732b8842562e293128dc384f9",
+      "head": "0xfe47d4ba5430787995c45b5800dcce27f3a1a813141f4ecbb00f3501fc38e211",
       "verified": true
     },
     "attestation": {
@@ -252,6 +266,12 @@
       "pub_key": "secp256k1:AwgdUOmm5ym00U/Dk+0tUA4wURALviMLqlXMuBa9kmpg",
       "address": "0x5512caEe289ef639CD3181487F93920C5F544868",
       "active": true
+    },
+    "serv": {
+      "model": null,
+      "calls": [],
+      "answer": null,
+      "note": "This run was recorded before the transport log was captured. The model's own reasoning for each attempt is in the signed decision log, on every step of the record."
     },
     "counterfactual": {
       "facts": [
@@ -304,7 +324,9 @@
         "tx_hash": "0xde3407331e6db215239a171789eaf26490bf023a211c6eb1d820e5c5ea3a5586",
         "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
         "spent_total_after": "0.001",
-        "paid_at": "2026-11-12T09:50:11.232Z"
+        "paid_at": "2026-11-12T09:50:11.232Z",
+        "fact": "current ETH price and 24h change",
+        "reason": "Adds the current ETH price and 24h change for the fact_to_cover."
       },
       {
         "n": 1,
@@ -318,7 +340,9 @@
         "tx_hash": "0xb0cc177cdfe5db3eb666ed28e92e563868de69b5f9efe78f0d8823ba294bf94d",
         "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
         "spent_total_after": "0.002",
-        "paid_at": "2026-11-12T09:50:16.721Z"
+        "paid_at": "2026-11-12T09:50:16.721Z",
+        "fact": "sentiment and recent headlines",
+        "reason": "This adds partial coverage for the fact to cover: sentiment and recent headlines."
       },
       {
         "n": 2,
@@ -332,7 +356,9 @@
         "tx_hash": "0xd769e94012206754dcf5c93921aa1fda87e14910d4246553828866851abfdaf5",
         "session_id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
         "spent_total_after": "0.052",
-        "paid_at": "2026-11-12T09:50:22.742Z"
+        "paid_at": "2026-11-12T09:50:22.742Z",
+        "fact": "search interest and trend over the last month",
+        "reason": "Adds evidence for the fact to cover: search interest and trend over the last month."
       }
     ],
     "totals": {

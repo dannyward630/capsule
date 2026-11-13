@@ -12,4 +12,5 @@
 .secrets/
 *.key
 audit.md
-audit.md:Zone.Identifier
+capsule-blueprint.md
+*:Zone.Identifier

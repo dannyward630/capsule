@@ -1,10 +1,27 @@
 # Capsule
 
-**Every purchase your agent made, every one it was refused, and the price of each.**
+**Capsule is the only thing that can tell you what your spending limit cost you.**
 
-SERV Reasoning decides *what* to buy and *when to stop*. A **Kite Passport session**,
-approved with your passkey and held outside this program, is the only thing that can
-release funds. The record keeps both.
+Your agent asked for **$0.05** of market data. Your cap was **$0.002**. The Passport
+refused it. That $0.05 was **20× your entire budget** — and nobody knew, because
+nothing else records what an agent was *refused*, at the real price, against the
+budget the user signed with a passkey.
+
+Capsule records it. Every purchase, every refusal, and the price of each. SERV
+Reasoning decides *what* to buy; a **Kite Passport session**, approved with your
+passkey and held outside this program, is the only thing that can release funds; the
+record keeps both.
+
+And it measures it: the same task, run again with one number changed, so the cost of
+the limit is a measurement and not an assertion.
+
+| | |
+| --- | --- |
+| **What the limit cost** | **$0.051 of evidence against a $0.0025 budget — 20.4×** |
+| **Proof it was the limit** | The same $0.05 endpoint was **refused** at the $0.002 cap and **paid** at the $0.06 cap, in transaction `0xd769e940…` |
+| **Who decided** | The Passport backend, in its own code. Not the agent, and not the code that wanted to spend |
+| **What is chain-verified** | Every payment, re-read from Base at request time |
+| **What is not** | The refusals — they leave no transaction. See [the asymmetry](#the-asymmetry) |
 
 <!-- Judge-reachable surfaces -->
 | | | | | |
@@ -24,7 +41,9 @@ Built for the **SERV Hackathon, Edition 02 — Kite track**.
    repository claims about it. The response carries `all_payments_verified_on_chain`.
 2. Read the record below. Two purchases settled; two were refused by the Passport, for
    two different reasons, each with the price it walked away from.
-3. Read **what the limit cost**. That number is the point of the project.
+3. Read **what the limit cost**: **$0.051 of evidence against a $0.0025 budget —
+   20.4×**. Then read the contrast run below, where the same $0.05 endpoint that was
+   refused here was paid. One variable changed, different outcome.
 4. Check the identity. The record is signed by the agent's key, and the key is published
    by Kite for the agent's DID:
 
@@ -97,24 +116,41 @@ times over, by three parties:
 `npm run verify` runs the whole check against the live deployment and exits zero only
 if all three hold.
 
+How the published record came to be — including the one time the log was re-chained,
+and what that did and did not change — is in [`docs/PROVENANCE.md`](docs/PROVENANCE.md).
+
 ## Bring your own record
 
-This is how somebody else uses Capsule.
+**Capsule verifies any agent's spending record.** Not just Capsule's.
+
+This is how somebody else uses it.
 
 If you run an agent that spends money, you publish its decision log — a hash-chained
 JSONL file — anywhere that serves it over https. You hand the link to whoever needs
 to see it: a customer, an auditor, the person who disputes a charge. Capsule fetches
-the log, checks its hash chain, reads every payment off the chain, and answers. The
-owner keeps their data; nothing is stored here.
+the log, reads every payment off the chain, and answers. The owner keeps their data;
+nothing is stored here.
 
 ```bash
-curl "https://capsule-phi-blond.vercel.app/verify?log=https://example.com/decision-log.jsonl"
+# the JSON answer
+curl "https://capsule-phi-blond.vercel.app/verify?log=https://example.com/decision-log.jsonl&format=json"
 ```
 
 ```bash
-# or read it in a browser
-open "https://capsule-phi-blond.vercel.app/?log=https://example.com/decision-log.jsonl"
+# or read it in a browser — this one shows the check happening, step by step
+open "https://capsule-phi-blond.vercel.app/verify?log=https://example.com/decision-log.jsonl"
 ```
+
+Three checks, and they are independent of each other:
+
+| Check | Applies to | What it proves |
+| --- | --- | --- |
+| **The payments** | **any** log with a transaction hash | a transfer of the expected amount was paid on the chain — the chain's answer, not the owner's |
+| **The refusals** | **any** log with a priced refusal | what the agent was refused and what it would have cost — the owner's claim, and the reason it matters |
+| **The hash chain** | logs written in Capsule's format | no earlier decision was edited — a bonus for people who write in our format, and the reason the format is published |
+
+A log in any other format still has its payments verified. Only the hash chain is
+skipped, and the answer says so.
 
 Our own log is published, so the path has a real example to point at:
 
@@ -123,11 +159,45 @@ https://capsule-phi-blond.vercel.app/decision-log.jsonl
 ```
 
 The fetcher is the one place in this project where the input is hostile, so it only
-fetches https, resolves the host and refuses any non-public address, checks every
-redirect hop, and caps the size and the time.
+fetches https, resolves the host once and **connects to the address it checked** —
+there is no window in which a name can be re-pointed at a private address — refuses
+any non-public address, re-checks every redirect hop, and caps the size and the time.
 
-A log that is not in Capsule's format still has its payments verified; only the hash
-chain is skipped, and the answer says so.
+## The asymmetry
+
+One thing in this project is half-proven, and it is worth saying plainly rather than
+burying:
+
+> **The payments are chain-verified. The refusals are the owner's claim.**
+
+A payment leaves a transaction, so it can be re-read from the chain by anyone. A
+refusal leaves nothing. It exists in the signed log and in the Passport's error
+code — and that is where it stops.
+
+This is not a footnote; it is the reason the refusals are the valuable half and also
+the unproven half. Nobody else records what an agent was refused. We do, and we say
+exactly how far the proof goes.
+
+Closing it means one attestation transaction per refusal, signed by the agent, so a
+refusal becomes something the chain carries. It needs a wallet and a few cents of
+gas. It has not been done.
+
+The other two anchors are complete: the payments are the chain's, and the record
+itself is signed with the key Kite publishes for the agent's DID.
+
+## The pages
+
+| Route | What it is |
+| --- | --- |
+| `/` | The owner's record: every attempt, what the limit cost, and the chain checks |
+| `/runs` | The experiment — the same task under two limits, one variable changed |
+| `/runs/:id` | One run, with its payments re-read from the chain |
+| `/verify` | **The third-party path.** Paste a log URL and watch the check happen |
+| `/docs/security-model` | What Capsule does **not** prove, in our own words |
+| `/docs/format` | The log format, and a writer you can copy |
+| `/proof.json` | The same facts as JSON, no account, no session |
+| `/decision-log.jsonl` | The published log itself |
+| `/runs.json`, `/runs/:id.json` | The runs, as data |
 
 ## How the limit is enforced
 
@@ -199,16 +269,20 @@ npm run readme              # regenerates the tables above
 
 ## The business model
 
-**Stated as a hypothesis, and it is one.** Spend-control software is a real, budgeted
-market — corporate card controls and API spend caps are things companies already pay for.
-The model here is a per-agent, per-user cap sold to the operator of a spending agent,
-which is the buyer who carries the chargeback risk and signs the inference bill the cap
-sits beside. The unit economics are per-agent monthly, with the platform fee a share of
-the spend it caps.
+**One payer. One number. One sentence. One way to charge.**
 
-No customer has been found, no commitment obtained, and no revenue exists. Every one of
-the 23 public entries in this event is a mechanism demo with no named buyer, so the field
-is weakest on exactly this criterion — and so are we.
+| | |
+| --- | --- |
+| **The payer** | The operator who sets the cap on an agent that spends on their behalf. Not the end user: they carry the chargeback risk, and they sign the inference bill the cap sits beside |
+| **The number** | A per-agent monthly fee, with the platform fee a share of the spend it caps |
+| **The sentence** | **Spend control that tells you what your control is costing you.** Today nobody can answer that question. The cap either bites and you never learn what it cost, or it does not bite and you are paying for a limit you never needed |
+| **How to charge** | The path is built: this repository is an x402 merchant (`/v1/*`) that settles USDC on Base through the Pieverse facilitator, and the settlement code ran against real payments. It has never *received* money, because our host is not on the Passport's allowlist — one message to Kite puts it there |
+
+**This is a hypothesis, and not a business.** Spend-control software is a real, budgeted
+market — corporate card controls and API spend caps are things companies already pay for.
+But no customer has been found, no commitment obtained, and no revenue exists. Every one
+of the 23 public entries in this event is a mechanism demo with no named buyer, so the
+field is weakest on exactly this criterion — and so are we.
 
 ## What is real, what is derived, what is self-asserted
 
@@ -218,7 +292,7 @@ is weakest on exactly this criterion — and so are we.
 | **Real, decided by Kite** | The refusals. The error codes are the Passport's own, and the session they came from is a session a judge can read about in the same way |
 | **Real, signed** | The decision log's head, signed with the key Kite publishes for the agent's DID |
 | **Derived by us** | The "what the limit cost" figures — they are the catalog's own prices for the endpoints the agent was refused, totalled |
-| **Self-asserted** | **The refusals are not chain-verified.** They exist in the signed log, and the log is a local file the owner could rewrite and re-sign. There is no on-chain record of a refusal today |
+| **Self-asserted** | **The refusals are not chain-verified.** They exist in the signed log, and the log is a local file the owner could rewrite and re-sign. There is no on-chain record of a refusal today. See [the asymmetry](#the-asymmetry) |
 | **Not public** | The link between the paying wallet and the agent's DID. Kite records it in the session and agent-registration records, but those are not readable by a third party, so we cannot show it to you. We publish both addresses and assert each separately |
 | **Mocked** | Scout, the service in this repository, returns a seeded series for its trend endpoints. It is not what the recorded run bought, and it received no money |
 

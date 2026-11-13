@@ -59,6 +59,9 @@ async function main() {
         }
       : null,
     publishedKey,
+    // The reasoning trail lives outside the decision log: it is transport
+    // metadata, not a decision. A rebuild keeps the one the run captured.
+    serv: previous?.serv,
   });
 
   // Sign the head with the agent's key, so the record is attributable.
@@ -106,6 +109,7 @@ async function main() {
       },
       attestation: contrastPrevious.attestation,
       publishedKey: contrastPrevious.published_key,
+      serv: contrastPrevious.serv,
     });
     receipts.contrast = contrast.receipts;
   } catch {

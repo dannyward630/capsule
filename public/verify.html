@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Capsule — verify a spending record</title>
+    <meta
+      name="description"
+      content="Paste the URL of an agent's published spending log. Capsule fetches it, checks its hash chain, reads every payment off the chain, and shows you the check as it happens."
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0d10'/%3E%3Cpath d='M9 21V11l7 5 7-5v10' stroke='%2334d3c4' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <a class="skip" href="#trace">Skip to the check</a>
+    <div class="shell">
+      <header>
+        <span class="wordmark">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="var(--surface-2)" />
+            <path d="M9 21V11l7 5 7-5v10" stroke="var(--settled)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Capsule
+        </span>
+        <nav class="site-nav" aria-label="Site">
+          <a href="/">The record</a>
+          <a href="/runs.html">The runs</a>
+          <a href="/verify.html" aria-current="page">Verify a log</a>
+          <a href="/docs/security-model.html">Security model</a>
+          <a href="/docs/format.html">Log format</a>
+        </nav>
+        <h1>
+          A spending record, <span class="accent">checked</span> by someone who did not
+          write it.
+        </h1>
+        <p class="standfirst">
+          Give the URL of an agent's published decision log. Capsule fetches it, checks its
+          hash chain, reads every payment off the chain, and shows you the check as it
+          happens. The owner keeps their data; nothing is stored here.
+        </p>
+
+        <form class="field" id="form">
+          <input
+            id="log-url"
+            type="url"
+            name="log"
+            placeholder="https://example.com/decision-log.jsonl"
+            aria-label="The URL of a published decision log"
+            required
+          />
+          <button type="submit" id="go">Verify it</button>
+        </form>
+        <p class="caveat" id="hint">
+          Try our own log:
+          <a href="?log=https://capsule-phi-blond.vercel.app/decision-log.jsonl"
+            >capsule-phi-blond.vercel.app/decision-log.jsonl</a
+          >.
+        </p>
+      </header>
+
+      <section id="trace" aria-labelledby="trace-h">
+        <h2 id="trace-h">The check</h2>
+        <div id="trace-body">
+          <div class="state"><p>No log yet. Paste a URL above, or open the example.</p></div>
+        </div>
+      </section>
+
+      <section id="record" aria-labelledby="record-h" hidden>
+        <h2 id="record-h">The record</h2>
+        <div id="record-body"></div>
+      </section>
+
+      <section id="verification" aria-labelledby="verify-h" hidden>
+        <h2 id="verify-h">Verification</h2>
+        <div id="verify-body"></div>
+      </section>
+
+      <footer>
+        <span>Capsule — the record of what an agent did with your money.</span>
+        <span>The payments are the chain's. The refusals are the owner's claim.</span>
+      </footer>
+    </div>
+
+    <script type="module" src="/trace.js"></script>
+  </body>
+</html>

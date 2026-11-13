@@ -1,0 +1,68 @@
+[
+  {
+    "seq": 0,
+    "at": "2026-11-12T09:50:11.232Z",
+    "decision": {
+      "kind": "purchase",
+      "service": "Agent402 Tools /api/crypto-price",
+      "url": "https://agent402.tools/api/crypto-price?coins=ETH&currency=usd",
+      "price_usd": "0.001",
+      "asset": "USDC",
+      "chain": "eip155:8453",
+      "tx_hash": "0xde3407331e6db215239a171789eaf26490bf023a211c6eb1d820e5c5ea3a5586",
+      "reason": "Adds the current ETH price and 24h change for the fact_to_cover.",
+      "fact": "current ETH price and 24h change"
+    },
+    "session": {
+      "id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
+      "max_amount_per_tx": "0.06",
+      "max_total_amount": "0.1"
+    },
+    "hash": "0x67835e8705b2956d9223b75e4e400e128ce5c5b3f2d0c8a722eccc473eaf595d",
+    "prev": "0x0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  {
+    "seq": 1,
+    "at": "2026-11-12T09:50:16.721Z",
+    "decision": {
+      "kind": "purchase",
+      "service": "Otto AI /base-ecosystem-news",
+      "url": "https://x402.ottoai.services/base-ecosystem-news",
+      "price_usd": "0.001",
+      "asset": "USDC",
+      "chain": "eip155:8453",
+      "tx_hash": "0xb0cc177cdfe5db3eb666ed28e92e563868de69b5f9efe78f0d8823ba294bf94d",
+      "reason": "This adds partial coverage for the fact to cover: sentiment and recent headlines.",
+      "fact": "sentiment and recent headlines"
+    },
+    "session": {
+      "id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
+      "max_amount_per_tx": "0.06",
+      "max_total_amount": "0.1"
+    },
+    "hash": "0x0a0aef3ac18d2c3b4ee15706a2b412ac6f25152632d61a3202d5b73c8d4c36c9",
+    "prev": "0x67835e8705b2956d9223b75e4e400e128ce5c5b3f2d0c8a722eccc473eaf595d"
+  },
+  {
+    "seq": 2,
+    "at": "2026-11-12T09:50:22.742Z",
+    "decision": {
+      "kind": "purchase",
+      "service": "Google Trends (x402Atlas) /trend-over-time",
+      "url": "https://google-trends.use.x402atlas.com/trend-over-time?geo=US&keyword=ETH&timeframe=past_12_months",
+      "price_usd": "0.05",
+      "asset": "USDC",
+      "chain": "eip155:8453",
+      "tx_hash": "0xd769e94012206754dcf5c93921aa1fda87e14910d4246553828866851abfdaf5",
+      "reason": "Adds evidence for the fact to cover: search interest and trend over the last month.",
+      "fact": "search interest and trend over the last month"
+    },
+    "session": {
+      "id": "agent_session_01a1cf1e-a8ff-7366-b287-1210fec6ad6e",
+      "max_amount_per_tx": "0.06",
+      "max_total_amount": "0.1"
+    },
+    "hash": "0xfe47d4ba5430787995c45b5800dcce27f3a1a813141f4ecbb00f3501fc38e211",
+    "prev": "0x0a0aef3ac18d2c3b4ee15706a2b412ac6f25152632d61a3202d5b73c8d4c36c9"
+  }
+]

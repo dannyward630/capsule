@@ -11,6 +11,21 @@ import type { SettlementChain } from "./chains.js";
 import type { Menu } from "./menu.js";
 import type { Receipts, ReceiptStep } from "./proof.js";
 
+/**
+ * The trail a run that predates the transport log carries.
+ *
+ * The model is known — it is the one the reasoning layer is configured with —
+ * but the calls were not recorded and the answer was not kept. Saying so is
+ * better than inventing an empty audit trail that looks like a failure.
+ */
+const EMPTY_SERV_TRAIL: Receipts["serv"] = {
+  model: null,
+  calls: [],
+  answer: null,
+  note:
+    "This run was recorded before the transport log was captured. The model's own reasoning for each attempt is in the signed decision log, on every step of the record.",
+};
+
 export interface BuildReceiptsInput {
   records: LogRecord[];
   /** The session that produced the log. */
@@ -28,6 +43,8 @@ export interface BuildReceiptsInput {
   seller: { name: string; pay_to: string };
   attestation?: Receipts["attestation"];
   publishedKey?: Receipts["published_key"];
+  /** The reasoning trail, when the run captured one. */
+  serv?: Receipts["serv"];
   task: string;
   claim: string;
   generatedAt?: string;
@@ -61,6 +78,9 @@ export function buildReceipts(input: BuildReceiptsInput): Receipts {
       session_id: record.session?.id ?? input.session.id,
       spent_total_after: fromBaseUnits(running, input.chain.assetDecimals),
       paid_at: decision.kind === "purchase" ? record.at : null,
+      // The model's own account of the attempt, taken from the signed log.
+      fact: decision.fact ?? null,
+      reason: decision.reason ?? null,
     };
   });
 
@@ -104,6 +124,7 @@ export function buildReceipts(input: BuildReceiptsInput): Receipts {
     },
     attestation: input.attestation ?? null,
     published_key: input.publishedKey ?? null,
+    serv: input.serv ?? EMPTY_SERV_TRAIL,
     counterfactual,
     substitutions: substitutions(records),
     steps,

@@ -69,6 +69,14 @@ async function main() {
     task: TASK,
     claim: CLAIM,
     publishedKey: key,
+    // The reasoning trail: every call to the reasoning layer, and the answer
+    // it finally wrote.
+    serv: {
+      model: run.servCalls[0]?.model ?? null,
+      calls: run.servCalls,
+      answer: run.answer,
+      note: "Every call to the reasoning layer, in order, and the answer it wrote.",
+    },
   });
 
   if (receipts.log.head) {

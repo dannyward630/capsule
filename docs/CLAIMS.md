@@ -14,7 +14,7 @@ into prose that is not in this file.
 | What the limit cost | $0.051 against a $0.0025 budget (20.4x) | the refused attempts in the decision log, priced | `npm run receipts` | 2026-11-12 |
 | Decision log algorithm | keccak-256 | the log's own header | `npm run verify` | 2026-11-12 |
 | Decision log records | 4 | the log | `npm run verify` | 2026-11-12 |
-| Decision log head | 0x6ab76d14fe58ea60c1f5f9a0cf9a4319ad9a37ce7c888c464f74a8ea848e581e | the log | `npm run verify` | 2026-11-12 |
+| Decision log head | 0xd6af6f6b610a8f1410ed38ea66742a3bd772fbc05543164c51f8779655c08839 | the log | `npm run verify` | 2026-11-12 |
 | Decision log chain intact | yes | the verifier | `npm run verify` | 2026-11-12 |
 | The service we built, which the Passport could not pay | 0xCfca130E445A5178d621aAd38E51D049855911c2 (received nothing) | our own Scout merchant's payment requirements | `curl -sD- -o/dev/null 'https://capsule-phi-blond.vercel.app/v1/snapshot?topic=ETH'` | 2026-11-12 |
 | Agent identity | agent_01a1cbf8-be0f-70af-88a8-d82d7c85564c | the Passport | `kpass agent status --output json` | 2026-11-12 |

@@ -162,3 +162,62 @@ The page renders the same way, so a reader can check it without reading JSON.
 
 This is the product the brief was reaching for. "The owner's record" is not a
 positioning line; it is a URL that somebody else can be given.
+
+---
+
+# 8. The second pass — 2026-11-13
+
+A second review, of `capsule-blueprint.md` (a design note written against commit
+`3f74e35`), audited every checkable claim against the repo, the live deployment and
+the live chain. The note was unusually accurate: every claim about our own code, the
+deployment, the chain and the competitor (Vigil) that could be tested held, with one
+false claim and one stale one. The notes for that audit are in
+`~/.config/opencode/project-notes/serv-hackathon-02/BLUEPRINT-AUDIT.md`.
+
+## What the audit found, and what was done about it
+
+| Finding | Resolution |
+| --- | --- |
+| **The published log carried no session**, so a third party's `budget_multiplier` was `null` and they had to be handed the budget separately | The session is now **inside the hash chain**: `npm run stamp` stamps it into every record and re-chains, `npm run receipts` re-derives the receipts and re-signs the new head. The budget a third party reads is now covered by the signature, not merely asserted. See `docs/PROVENANCE.md` |
+| The blueprint's claim that "the session-bearing format already exists" | **False**, and it changed the fix: the *code* supported it, but neither recorded log carried one. So it had to be stamped and re-chained, not published as-is |
+| **A DNS-rebinding window**: `assertFetchable()` resolved and checked the host, then `fetch()` resolved it again | The address is resolved **once**, checked, and the socket connects to **that address** (`src/net.ts`, `createPinnedLookup`). TLS still uses the hostname, so the certificate is checked against the name. A test asserts the lookup answers with the checked address whatever name it is asked about |
+| The payments are chain-verified and the refusals are not, and the page did not say so | Stated in the README (a section of its own), on the record page, on the trace page and on `/docs/security-model` |
+| The network effect was built and not claimed | The README now leads with *"Capsule verifies any agent's spending record"*, and the third-party path has three independent checks, of which only the hash chain is format-specific |
+| The SERV audit trail was collected (`agent.ts` → `servCalls`) and then dropped: `receipts.json` had no such field | The model's own reasoning for every attempt is now carried on each step of the record — it lives in the **signed log**, so it is covered by the hash chain. The transport log (model, tokens, latency) and the final answer are captured for future runs and exposed in `/proof.json`; the recorded run predates that field, and the payload says so rather than showing an empty audit trail |
+| The A/B — the strongest evidence the project owns — had no screen | `/runs` and `/runs/:id`, plus the contrast log published at `/runs/contrast/decision-log.jsonl` |
+| `/verify` returned a JSON blob, which asks for trust instead of teaching it | `/verify` is now an **interactive trace**: fetched → parsed → hash chain intact → each transfer confirmed on Base → the refusals → the limit cost. The JSON answer moved to `?format=json` and the curl example in the README says so |
+| The log format was undocumented | `/docs/format` publishes the spec and the writer (`public/log-writer.mjs`), and a test writes a log with the published writer and verifies it with our implementation, so the page cannot drift from the code |
+| `docs/EVENT-RULES.md` was stale in ways that mis-planned the endgame | Updated: the repository, the account, the deployment target and the URL are recorded as they are; the Layer-A criteria and the benchmark are filled in with citations |
+
+## What was cut, and why
+
+The blueprint proposed a `core/` + `adapters/` restructure — 4 hours — to make the
+format pluggable. It was cut, for two reasons. `src/verify-log.ts` already reuses
+`ChainReader` and `verifyStep` from `src/proof.ts`, so the duplication it removes is
+about forty lines, not an architecture. And the outcome a third party actually
+experiences is a writer they can use, which the published format delivers at a third of
+the cost. The directory layout is internal; the package is external.
+
+## The weakness the blueprint did not disclose
+
+The blueprint's centrepiece — a minimum-cost set-cover solver for the price of an
+answer — defines coverage as "the facts its response would actually support". In this
+codebase coverage is **declared**, not demonstrated: `src/menu.ts` derives it by
+keyword-matching a fact against the catalog's `summary`, `returns` and `tags`. So a
+solver over it computes the cheapest set of endpoints whose *metadata* mentions your
+facts, and its "cost of the limit" would be a hypothetical number that can be much
+smaller than the observed $0.051 — two different numbers for one idea, on one page.
+
+The fix is provenance: coverage that was **demonstrated** (an endpoint that was actually
+bought for a fact) and coverage that is only **declared** (catalog metadata), labelled
+as such. We have demonstrated coverage for three endpoints. The solver is worth
+building; the decision about how it measures coverage is worth making first.
+
+## The numbers, now
+
+| Gate | Result |
+| --- | --- |
+| `npm test` | 40/40 |
+| `npx tsc --noEmit` | clean |
+| `npm run verify` | 15/15 against the live deployment |
+| Browser audit, 8 pages at 1440px and 390px | no findings: no console errors, no overflow, contrast ≥ 4.5 |

@@ -83,11 +83,22 @@ export function renderRecord(proof) {
         if (check?.recipient) meta.push(`to ${escape(check.recipient.slice(0, 10))}…`);
       }
       if (!paid && step.error_code) meta.push(escape(step.error_code));
+      // The model's own account of the attempt. It lives in the signed log, so
+      // it is covered by the hash chain.
+      const thinking =
+        step.fact || step.reason
+          ? `<div class="why-model">${
+              step.fact
+                ? `<span class="fact">For: ${escape(step.fact)}</span><br />`
+                : ""
+            }${step.reason ? `&ldquo;${escape(step.reason)}&rdquo;` : ""}</div>`
+          : "";
       return `<li>
         <span class="seq">${step.n}</span>
         <div class="what">
           <div class="target">${escape(path(step.url))} <span class="host">· ${escape(host(step.url))}</span></div>
           <div class="why"><span class="plain">${escape(reason)}</span></div>
+          ${thinking}
           ${meta.length ? `<div class="meta">${meta.map((m) => `<span>${m}</span>`).join("")}</div>` : ""}
         </div>
         <div class="price">
@@ -127,6 +138,26 @@ export function renderCost(proof) {
     })
     .join("");
   const multiple = counterfactual.budget_multiplier;
+  if (!counterfactual.attempts?.length) {
+    set(
+      "cost-body",
+      `<div class="verify">
+        <div class="verify-head">
+          <span class="headline" style="font-size:1.15rem">Nothing was refused</span>
+          <span class="spacer"></span>
+          <span style="color:var(--ink-3);font-size:0.83rem">against a ${escape(
+            money(counterfactual.budget_usd),
+          )} budget</span>
+        </div>
+        <p class="caveat" style="margin:0;padding:14px 19px;border:none">
+          Every purchase this agent proposed was allowed. The limit never bound, so there is
+          no cost to report — which is the point of running the same task again under a
+          larger limit.
+        </p>
+      </div>`,
+    );
+    return;
+  }
   set(
     "cost-body",
     `<div class="verify">
@@ -305,7 +336,15 @@ export function renderVerification(proof) {
     .join("");
   set(
     "verify-body",
-    `<div class="verify">
+    `<div class="callout">
+      <strong>The payments are chain-verified. The refusals are the owner's claim.</strong>
+      A payment leaves a transaction, so anyone can re-read it — that is what the table
+      below does, at the moment you loaded this page. A refusal leaves nothing behind: it
+      exists in the signed log and in the Passport's error code, and that is where it stops.
+      That asymmetry is exactly why the refusals are the valuable half and also the unproven
+      half: nothing else records what an agent was refused.
+    </div>
+    <div class="verify">
       <div class="verify-head">
         ${statusChip(
           ok ? "verified" : "fault",
@@ -383,6 +422,21 @@ export function renderSurfaces(proof) {
   set(
     "surfaces-body",
     `${published}
+      <a class="surface" href="/runs.html">
+        <div class="k">The experiment</div>
+        <div class="v">/runs</div>
+        <div class="d">The same task under two limits. One variable changed.</div>
+      </a>
+      <a class="surface" href="/verify.html">
+        <div class="k">Verify anyone's record</div>
+        <div class="v">/verify</div>
+        <div class="d">Paste a log URL and watch the check happen.</div>
+      </a>
+      <a class="surface" href="/docs/security-model.html">
+        <div class="k">What we do not prove</div>
+        <div class="v">/docs/security-model</div>
+        <div class="d">The refusals are the owner's claim. Here is the whole of it.</div>
+      </a>
       <a class="surface" href="/proof.json">
         <div class="k">Machine-readable proof</div>
         <div class="v">/proof.json</div>

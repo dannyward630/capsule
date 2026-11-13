@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Capsule — the security model</title>
+    <meta
+      name="description"
+      content="What Capsule proves, what it does not, and what it would take to prove the rest."
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0d10'/%3E%3Cpath d='M9 21V11l7 5 7-5v10' stroke='%2334d3c4' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <a class="skip" href="#model">Skip to the model</a>
+    <div class="shell">
+      <header>
+        <span class="wordmark">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="var(--surface-2)" />
+            <path d="M9 21V11l7 5 7-5v10" stroke="var(--settled)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Capsule
+        </span>
+        <nav class="site-nav" aria-label="Site">
+          <a href="/">The record</a>
+          <a href="/runs.html">The runs</a>
+          <a href="/verify.html">Verify a log</a>
+          <a href="/docs/security-model.html" aria-current="page">Security model</a>
+          <a href="/docs/format.html">Log format</a>
+        </nav>
+        <h1>
+          What this <span class="accent">does not</span> prove.
+        </h1>
+        <p class="standfirst">
+          Most of the record is checkable by someone who does not trust this program. One
+          part is not, and it is the part the product is about. This page is the whole of
+          that, in our own words.
+        </p>
+      </header>
+
+      <section id="model" aria-labelledby="model-h">
+        <h2 id="model-h">The model</h2>
+        <div class="prose">
+          <div class="callout">
+            <strong>The payments are chain-verified. The refusals are the owner's claim.</strong>
+            That is the one asymmetry in the product, and it is deliberate that it is visible
+            rather than buried.
+          </div>
+
+          <h3>What a third party can check without trusting us</h3>
+          <ul>
+            <li>
+              <strong>The payments.</strong> Each purchase carries a transaction hash. Capsule
+              re-reads the transaction from Base at the moment the proof is requested, checks
+              that a transfer of exactly the expected amount of USDC was made, and checks that
+              the sender was the session's own wallet. A reader can do the same with
+              <code>curl</code> and a block explorer.
+            </li>
+            <li>
+              <strong>The record's integrity.</strong> The decision log is a keccak-256 hash
+              chain: each record commits to the one before it. Editing an earlier decision
+              breaks every link after it, and the verifier names the record that broke. The
+              head is signed with the secp256k1 key Kite publishes for the agent's DID, and
+              that key is fetched live from Kite over plain HTTPS, so the signature can be
+              checked against Kite rather than against us.
+            </li>
+            <li>
+              <strong>The budget.</strong> The session that produced the record is inside the
+              hash chain, so the per-call cap and the total budget are covered by the
+              signature. They cannot be edited without breaking the head.
+            </li>
+          </ul>
+
+          <h3>What a third party cannot check</h3>
+          <ul>
+            <li>
+              <strong>The refusals.</strong> A refusal leaves no transaction. It exists in the
+              signed log and in the Passport's error code — <code>session_rule_exceeded</code>,
+              <code>session_total_exceeded</code> — and there is nothing on chain to point
+              at. The owner could rewrite the log and re-sign it; the payments would still
+              check out, and the refusals would be whatever the owner said they were.
+            </li>
+            <li>
+              <strong>The link between the paying wallet and the agent's DID.</strong> Kite
+              records it in the session and the agent-registration records, and those records
+              are not readable by a third party. We publish both addresses and assert each
+              separately rather than claim a binding we cannot show.
+            </li>
+            <li>
+              <strong>That the prices are the real prices.</strong> A price comes from the
+              merchant's x402 challenge, and the amount that gets signed is the amount the
+              merchant asked for. The on-chain transfer confirms that amount was paid; it
+              does not confirm the merchant charged a fair price for the data.
+            </li>
+          </ul>
+
+          <h3>What would close the gap</h3>
+          <p>
+            One attestation transaction per refusal, signed by the agent and posted on chain,
+            would make a refusal something the chain carries rather than something the owner
+            says. It costs a few cents of gas and one wallet, and it has not been done. It is
+            the first thing on the list, not a footnote.
+          </p>
+          <p>
+            Everything else in this repository is checkable today, with the tools in the
+            README, against the live deployment, without an account.
+          </p>
+
+          <h3>What this program can and cannot do with money</h3>
+          <p>
+            The cap is enforced <strong>outside</strong> the process that wants to spend. The
+            code in this repository never filters the menu by budget, never holds a key that
+            can move funds on its own, and never decides what an agent may afford. A
+            <strong>Kite Passport session</strong> — approved with a passkey, held in the
+            Passport's backend — is the only thing that can release funds, and it refuses in
+            its own code with its own error codes. That is the whole difference between this
+            and the common pattern, where the agent caps itself in a config file it can read.
+          </p>
+
+          <h3>Hostile input</h3>
+          <p>
+            <code>/verify</code> fetches a URL a stranger gives it, which is the one place in
+            this project where the input is hostile. The fetcher only takes
+            <strong>https</strong>; it resolves the host <strong>once</strong> and connects
+            to the address it checked, so there is no window in which a name can be
+            re-pointed at a private address; it refuses every non-public address, including
+            the cloud metadata address; it re-checks every redirect hop; and it caps the size
+            and the time of the read.
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        <span>Capsule — the record of what an agent did with your money.</span>
+        <span>Say what you do not prove, first.</span>
+      </footer>
+    </div>
+  </body>
+</html>

@@ -31,6 +31,12 @@
  * @property {string|null} spent_total_after
  * @property {string|null} paid_at
  *
+ * @typedef {object} TraceStep
+ * @property {number} n
+ * @property {string} label
+ * @property {string} detail
+ * @property {"ok"|"warn"|"fail"|"info"} state
+ *
  * @typedef {object} Proof
  * @property {string} status
  * @property {string} [task]
@@ -48,6 +54,7 @@
  * @property {object} totals
  * @property {ProofStep[]} steps
  * @property {ChainCheck[]} chain_checks
+ * @property {TraceStep[]} [trace]
  * @property {boolean} [all_payments_verified_on_chain]
  * @property {string} [message]
  * @property {string} [error]
@@ -83,9 +90,11 @@ export async function fetchOurProof() {
  * @returns {Promise<Proof>}
  */
 export async function fetchPublishedProof(logUrl) {
-  const response = await fetch(`/verify?log=${encodeURIComponent(logUrl)}`, {
-    headers: { accept: "application/json" },
-  });
+  // `format=json` because /verify without it is the interactive trace page.
+  const response = await fetch(
+    `/verify?log=${encodeURIComponent(logUrl)}&format=json`,
+    { headers: { accept: "application/json" } },
+  );
   const proof = /** @type {Proof} */ (await response.json());
   if (!response.ok) {
     throw new ProofError(proof.message ?? "the log could not be verified");

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Capsule — the log format</title>
+    <meta
+      name="description"
+      content="The decision log format: one JSON object per line, each committing to the one before it. The spec, and a writer you can copy."
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0d10'/%3E%3Cpath d='M9 21V11l7 5 7-5v10' stroke='%2334d3c4' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <a class="skip" href="#spec">Skip to the spec</a>
+    <div class="shell">
+      <header>
+        <span class="wordmark">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="var(--surface-2)" />
+            <path d="M9 21V11l7 5 7-5v10" stroke="var(--settled)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Capsule
+        </span>
+        <nav class="site-nav" aria-label="Site">
+          <a href="/">The record</a>
+          <a href="/runs.html">The runs</a>
+          <a href="/verify.html">Verify a log</a>
+          <a href="/docs/security-model.html">Security model</a>
+          <a href="/docs/format.html" aria-current="page">Log format</a>
+        </nav>
+        <h1>
+          The log <span class="accent">format</span>.
+        </h1>
+        <p class="standfirst">
+          One JSON object per line, each committing to the one before it. Write it in any
+          shape you like and Capsule will still check your payments — the hash chain is the
+          bonus for people who want it.
+        </p>
+      </header>
+
+      <section id="spec" aria-labelledby="spec-h">
+        <h2 id="spec-h">The spec</h2>
+        <div class="prose">
+          <h3>The record</h3>
+          <pre>{
+  "seq": 0,
+  "at": "2026-11-12T05:12:03.114Z",
+  "decision": {
+    "kind": "purchase",
+    "service": "Agent402 Tools /api/crypto-price",
+    "url": "https://agent402.tools/api/crypto-price?coins=ETH&amp;currency=usd",
+    "price_usd": "0.001",
+    "asset": "USDC",
+    "chain": "eip155:8453",
+    "tx_hash": "0xf222835b302b905f6d00c5e620cfc59a7b97c1f1d9672eb4c9cdd682e3ecde4e",
+    "reason": "covers the current price and 24h change",
+    "fact": "current ETH price and 24h change"
+  },
+  "session": {
+    "id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
+    "max_amount_per_tx": "0.002",
+    "max_total_amount": "0.0025"
+  },
+  "hash": "0xd6af6f6b610a8f1410ed38ea66742a3bd772fbc05543164c51f8779655c08839",
+  "prev": "0x0000000000000000000000000000000000000000000000000000000000000000"
+}</pre>
+          <p>
+            A <strong>refusal</strong> record has the same shape with
+            <code>kind: "refusal"</code>, no <code>tx_hash</code>, and the Passport's own
+            <code>error_code</code> and <code>message</code> instead. A refusal is what
+            makes a record worth publishing.
+          </p>
+
+          <h3>The hash rule</h3>
+          <p>
+            Each record's <code>hash</code> is
+            <code>keccak256(utf8(JSON.stringify(payload)))</code>, where the payload is the
+            record's <code>seq</code>, <code>at</code>, <code>decision</code>,
+            <code>prev</code> and — if the record carries one — <code>session</code>, in
+            <strong>that key order</strong>. The order is part of the format, because the
+            hash is taken over exactly that JSON.
+          </p>
+          <p>
+            <code>prev</code> is the previous record's <code>hash</code>; the first record's
+            <code>prev</code> is 64 zeroes. Change any earlier decision and every hash after
+            it stops matching, and the verifier says which record broke.
+          </p>
+
+          <h3>Writing one</h3>
+          <p>
+            The writer is one file with no framework in it, and it is in this repository:
+            <a href="/log-writer.mjs"><code>docs/log-writer.mjs</code></a>. It needs
+            <code>viem</code> and nothing else.
+          </p>
+          <pre>import { DecisionLog } from "./log-writer.mjs";
+
+const log = new DecisionLog({ path: "decision-log.jsonl" });
+
+await log.append({
+  kind: "purchase",
+  service: "Agent402 Tools /api/crypto-price",
+  url: "https://agent402.tools/api/crypto-price?coins=ETH&amp;currency=usd",
+  price_usd: "0.001",
+  asset: "USDC",
+  chain: "eip155:8453",
+  tx_hash: "0x...",
+  reason: "covers the current price",
+  fact: "current ETH price and 24h change",
+}, {
+  id: "agent_session_...",
+  max_amount_per_tx: "0.002",
+  max_total_amount: "0.0025",
+});</pre>
+
+          <h3>Getting it checked</h3>
+          <p>
+            Publish the file anywhere that serves it over <code>https</code> and hand the
+            URL to whoever needs to see it:
+          </p>
+          <pre>https://capsule-phi-blond.vercel.app/verify?log=https://your.host/decision-log.jsonl</pre>
+          <p>
+            Or in JSON:
+          </p>
+          <pre>curl "https://capsule-phi-blond.vercel.app/verify?log=https://your.host/decision-log.jsonl&amp;format=json"</pre>
+          <p>
+            Nothing is stored. Capsule fetches the file, checks it, reads the payments off
+            the chain, and answers.
+          </p>
+
+          <h3>If you do not write in this format</h3>
+          <p>
+            Your payments are still verified. All Capsule needs is a record with a
+            <code>decision.kind</code>, a <code>price_usd</code>, a <code>chain</code> and a
+            <code>tx_hash</code> — one JSON object per line. Only the hash chain is skipped,
+            and the answer says so.
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        <span>Capsule — the record of what an agent did with your money.</span>
+        <span>The format is an interface, not a requirement.</span>
+      </footer>
+    </div>
+  </body>
+</html>

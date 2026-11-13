@@ -15,6 +15,9 @@ import { FACILITATOR_URL, chainMoneyParser } from "./kite.js";
 import { DEFAULT_CHAIN_ID, chainByName, type SettlementChain } from "./chains.js";
 import { CATALOG } from "./catalog.js";
 import LOG_RECORDS from "../docs/decision-log.json" with { type: "json" };
+import CONTRAST_LOG_RECORDS from "../docs/runs/contrast/decision-log.json" with {
+  type: "json",
+};
 import { UnsafeUrlError } from "./net.js";
 import { verifyPublishedLog } from "./verify-log.js";
 import { sellerRouter } from "./seller.js";
@@ -127,6 +130,72 @@ export async function checkRecord(
   };
 }
 
+/**
+ * The proof payload for one run, with its payments re-read from the chain.
+ *
+ * One builder, so the owner's page, the run pages and the API cannot disagree
+ * about what a run says.
+ */
+export async function buildProof(
+  receipts: Receipts,
+  options: { run_id?: string; contrast?: Receipts | null } = {},
+): Promise<Record<string, unknown>> {
+  const { checks, allVerified } = await checkRecord(receipts);
+  return {
+    status: "verified",
+    run_id: options.run_id ?? "recorded",
+    generated_at: receipts.generated_at,
+    task: receipts.task,
+    claim: receipts.claim,
+    session: receipts.session,
+    agent: receipts.agent,
+    payer_address: receipts.payer_address,
+    chain: receipts.chain,
+    seller: receipts.seller,
+    log: receipts.log,
+    counterfactual: receipts.counterfactual,
+    attestation: receipts.attestation,
+    published_key: receipts.published_key,
+    serv: receipts.serv,
+    substitutions: receipts.substitutions,
+    contrast: options.contrast ?? null,
+    totals: receipts.totals,
+    steps: receipts.steps,
+    chain_checks: checks,
+    all_payments_verified_on_chain: allVerified,
+    note:
+      "chain_checks are re-read from the chain at request time; they are not a copy of the receipts.",
+  };
+}
+
+/** One line about a run, for the list. */
+export function describeRun(
+  id: string,
+  label: string,
+  receipts: Receipts,
+): Record<string, unknown> {
+  return {
+    id,
+    label,
+    session_id: receipts.session.session_id,
+    max_amount_per_tx: receipts.session.max_amount_per_tx,
+    max_total_amount: receipts.session.max_total_amount,
+    payments: receipts.totals.payments,
+    refusals: receipts.totals.refusals,
+    spent_usd: receipts.totals.spent_usd,
+    budget_usd: receipts.totals.session_budget_usd,
+    cost_of_the_limit_usd: receipts.counterfactual?.cost_usd ?? 0,
+    budget_multiplier: receipts.counterfactual?.budget_multiplier ?? null,
+    log_head: receipts.log.head,
+    log_records: receipts.log.records,
+    chain: receipts.chain,
+    log_url:
+      id === "contrast"
+        ? "/runs/contrast/decision-log.jsonl"
+        : "/decision-log.jsonl",
+  };
+}
+
 export function createApp(config: AppConfig = readConfig()) {
   const app = express();
   app.disable("x-powered-by");
@@ -182,34 +251,39 @@ export function createApp(config: AppConfig = readConfig()) {
           "No demo run has been recorded yet. The receipts file is written by `npm run demo`.",
       });
     }
-    const { checks, allVerified } = await checkRecord(receipts);
-    return response.json({
-      status: "verified",
-      generated_at: receipts.generated_at,
-      task: receipts.task,
-      claim: receipts.claim,
-      session: receipts.session,
-      agent: receipts.agent,
-      payer_address: receipts.payer_address,
-      chain: receipts.chain,
-      seller: receipts.seller,
-      log: receipts.log,
-      counterfactual: receipts.counterfactual,
-      attestation: receipts.attestation,
-      published_key: receipts.published_key,
-      substitutions: receipts.substitutions,
-      contrast: receipts.contrast ?? null,
-      totals: receipts.totals,
-      steps: receipts.steps,
-      chain_checks: checks,
-      all_payments_verified_on_chain: allVerified,
-      note:
-        "chain_checks are re-read from the chain at request time; they are not a copy of the receipts.",
-    });
+    return response.json(
+      await buildProof(receipts, { contrast: receipts.contrast ?? null }),
+    );
   });
 
   app.get("/proof", (_request, response) => {
     response.redirect("/");
+  });
+
+  /**
+   * The pages that have their own address.
+   *
+   * The documents themselves are served from the edge; these are the clean
+   * URLs that point at them.
+   */
+  const PAGES: Record<string, string> = {
+    "/runs": "/runs.html",
+    "/docs/security-model": "/docs/security-model.html",
+    "/docs/format": "/docs/format.html",
+  };
+  for (const [from, to] of Object.entries(PAGES)) {
+    app.get(from, (request, response) => {
+      const query = request.originalUrl.includes("?")
+        ? `?${request.originalUrl.split("?")[1]}`
+        : "";
+      response.redirect(`${to}${query}`);
+    });
+  }
+  app.get("/run", (request, response) => {
+    const query = request.originalUrl.includes("?")
+      ? `?${request.originalUrl.split("?")[1]}`
+      : "";
+    response.redirect(`/run.html${query}`);
   });
 
   /**
@@ -225,6 +299,60 @@ export function createApp(config: AppConfig = readConfig()) {
       ? `?${request.originalUrl.split("?")[1]}`
       : "";
     response.redirect(`/index.html${query}`);
+  });
+
+  /**
+   * The runs.
+   *
+   * A run is a first-class object: the same task, the same agent, one number
+   * changed. The A/B is the strongest evidence this project owns, so it gets an
+   * address and a screen rather than a table in a README.
+   */
+  app.get("/runs.json", async (_request, response) => {
+    const receipts = await readReceipts();
+    if (!receipts) {
+      return response.status(200).json({ status: "no_run_recorded", runs: [] });
+    }
+    const runs = [
+      describeRun("recorded", "The recorded run", receipts),
+      ...(receipts.contrast
+        ? [describeRun("contrast", "The contrast run", receipts.contrast)]
+        : []),
+    ];
+    response.set("Cache-Control", "public, max-age=30");
+    return response.json({
+      status: "ok",
+      task: receipts.task,
+      claim: receipts.claim,
+      runs,
+    });
+  });
+
+  /** One run, as a full proof with its payments re-read from the chain. */
+  app.get("/runs/:id.json", async (request: Request, response: Response) => {
+    const id = String(request.params.id ?? "");
+    const receipts = await readReceipts();
+    if (!receipts) {
+      return response.status(404).json({ error: "no_run_recorded" });
+    }
+    const run =
+      id === "recorded"
+        ? receipts
+        : id === "contrast"
+          ? receipts.contrast
+          : null;
+    if (!run) {
+      return response.status(404).json({
+        error: "no_such_run",
+        message: `there is no run called "${id}". The runs are: recorded, contrast.`,
+      });
+    }
+    const proof = await buildProof(run, {
+      run_id: id,
+      contrast: id === "recorded" ? (receipts.contrast ?? null) : null,
+    });
+    response.set("Cache-Control", "public, max-age=30, stale-while-revalidate=300");
+    return response.json(proof);
   });
 
   /**
@@ -245,15 +373,46 @@ export function createApp(config: AppConfig = readConfig()) {
   });
 
   /**
+   * The contrast run's log, published.
+   *
+   * The two logs together are the experiment: the same task, the same agent,
+   * one number changed.
+   */
+  app.get("/runs/contrast/decision-log.jsonl", (_request, response) => {
+    if (!CONTRAST_LOG_RECORDS.length) {
+      return response.status(404).json({ error: "no_log" });
+    }
+    response.set("Content-Type", "application/x-ndjson; charset=utf-8");
+    response.set("Cache-Control", "public, max-age=60");
+    return response.send(
+      CONTRAST_LOG_RECORDS.map((record) => JSON.stringify(record)).join("\n") + "\n",
+    );
+  });
+
+  /**
    * The third-party path.
    *
    * An agent owner publishes their decision log anywhere and hands this link
    * to whoever needs to see it. We fetch the log, check its hash chain, and
    * check every payment against the chain, then answer. The owner keeps their
    * data: nothing is stored here.
+   *
+   * With `format=json` it answers in JSON, which is what the curl example in
+   * the README uses. Without it, it redirects to the interactive trace, so a
+   * reader sees the check happen rather than a blob of JSON.
    */
   app.get("/verify", async (request: Request, response: Response) => {
     const logUrl = String(request.query.log ?? "").trim();
+    const wantsJson =
+      String(request.query.format ?? "") === "json" ||
+      String(request.headers.accept ?? "").includes("application/json");
+
+    if (!wantsJson) {
+      const query = request.originalUrl.includes("?")
+        ? `?${request.originalUrl.split("?")[1]}`
+        : "";
+      return response.redirect(`/verify.html${query}`);
+    }
     if (!logUrl) {
       return response.status(400).json({
         error: "missing_log",

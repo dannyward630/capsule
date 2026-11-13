@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Capsule — the runs</title>
+    <meta
+      name="description"
+      content="The same task, the same agent, one number changed. Two recorded runs: what the limit cost, and the evidence that the limit was the cause."
+    />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b0d10'/%3E%3Cpath d='M9 21V11l7 5 7-5v10' stroke='%2334d3c4' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <a class="skip" href="#runs">Skip to the runs</a>
+    <div class="shell">
+      <header>
+        <span class="wordmark">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="var(--surface-2)" />
+            <path d="M9 21V11l7 5 7-5v10" stroke="var(--settled)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Capsule
+        </span>
+        <nav class="site-nav" aria-label="Site">
+          <a href="/">The record</a>
+          <a href="/runs.html" aria-current="page">The runs</a>
+          <a href="/verify.html">Verify a log</a>
+          <a href="/docs/security-model.html">Security model</a>
+          <a href="/docs/format.html">Log format</a>
+        </nav>
+        <h1>
+          The same task, <span class="accent">one number</span> changed.
+        </h1>
+        <p class="standfirst">
+          Two runs of the same task by the same agent, under two limits the user signed. The
+          only variable is the number. That is what makes the cost of a limit a measurement
+          instead of an assertion.
+        </p>
+      </header>
+
+      <section id="runs" aria-labelledby="runs-h">
+        <h2 id="runs-h">The runs</h2>
+        <div id="runs-body">
+          <div class="state"><p>Loading the runs…</p></div>
+        </div>
+      </section>
+
+      <section id="compare" aria-labelledby="compare-h">
+        <h2 id="compare-h">Side by side</h2>
+        <div id="compare-body"></div>
+      </section>
+
+      <footer>
+        <span>Capsule — the record of what an agent did with your money.</span>
+        <span>Every payment re-read from the chain when this page loads.</span>
+      </footer>
+    </div>
+
+    <script type="module" src="/runs.js"></script>
+  </body>
+</html>

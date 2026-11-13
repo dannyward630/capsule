@@ -18,6 +18,7 @@
     "menu": "npx tsx scripts/build-menu.ts",
     "verify": "node --env-file-if-exists=.env --import tsx scripts/verify.ts",
     "receipts": "node --env-file-if-exists=.env --import tsx scripts/rebuild-receipts.ts",
+    "stamp": "node --env-file-if-exists=.env --import tsx scripts/stamp-session.ts",
     "readme": "node --env-file-if-exists=.env --import tsx scripts/generate-readme.ts",
     "judge": "node --env-file-if-exists=.env --import tsx scripts/judge.ts"
   },

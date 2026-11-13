@@ -8,11 +8,14 @@
  *   - every resolved address must be a public unicast address, checked after
  *     resolution so a DNS name cannot point at 127.0.0.1 or a metadata
  *     service;
+ *   - the connection is made to the address that was checked, not to whatever
+ *     the name resolves to a second later;
  *   - redirects are followed by hand, and each hop is checked again;
  *   - the body is capped, and the read is timed out.
  */
-import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { lookup as dnsLookup } from "node:dns/promises";
+import { request as httpsRequest } from "node:https";
+import { isIP, type LookupFunction } from "node:net";
 
 export interface FetchOptions {
   maxBytes?: number;
@@ -71,8 +74,27 @@ export function isPublicAddress(address: string): boolean {
   return false;
 }
 
-/** Rejects a URL that is not one we are willing to fetch. */
-export async function assertFetchable(rawUrl: string): Promise<URL> {
+/** A URL we have checked, and the address we are allowed to connect to. */
+export interface ResolvedUrl {
+  url: URL;
+  /** The address that was checked. The connection goes here, not to a name. */
+  address: string;
+  family: 4 | 6;
+}
+
+/**
+ * Checks a URL and pins the address it may be connected to.
+ *
+ * The pin is the point. If we checked the name and then let the HTTP client
+ * resolve it again, a hostile DNS server could answer with a public address the
+ * first time and a private one the second time — the classic rebinding window.
+ * So the address is resolved once, checked, and handed to the socket.
+ *
+ * The certificate is still checked against the *name*: the TLS server name stays
+ * the hostname, so a pinned connection cannot be used to present somebody
+ * else's certificate.
+ */
+export async function resolvePublic(rawUrl: string): Promise<ResolvedUrl> {
   let url: URL;
   try {
     url = new URL(rawUrl);
@@ -93,9 +115,11 @@ export async function assertFetchable(rawUrl: string): Promise<URL> {
     if (!isPublicAddress(host)) {
       throw new UnsafeUrlError("that address is not a public address");
     }
-    return url;
+    return { url, address: host, family: isIP(host) as 4 | 6 };
   }
-  const addresses = await lookup(host, { all: true }).catch(() => [] as Array<{ address: string }>);
+  const addresses = await dnsLookup(host, { all: true }).catch(
+    () => [] as Array<{ address: string; family: number }>,
+  );
   if (!addresses.length) {
     throw new UnsafeUrlError("that host does not resolve");
   }
@@ -104,7 +128,38 @@ export async function assertFetchable(rawUrl: string): Promise<URL> {
       throw new UnsafeUrlError("that host resolves to a non-public address");
     }
   }
-  return url;
+  // Prefer IPv4: it is what a host publishes first, and it keeps the pinned
+  // lookup simple.
+  const chosen =
+    addresses.find((entry) => entry.family === 4) ?? addresses[0]!;
+  return { url, address: chosen.address, family: chosen.family as 4 | 6 };
+}
+
+/** Rejects a URL that is not one we are willing to fetch. */
+export async function assertFetchable(rawUrl: string): Promise<URL> {
+  return (await resolvePublic(rawUrl)).url;
+}
+
+/**
+ * A DNS lookup that always answers with the address we already checked.
+ *
+ * The HTTP client calls this instead of resolving the name, so there is no
+ * second resolution and therefore no window.
+ */
+export function createPinnedLookup(address: string, family: 4 | 6): LookupFunction {
+  return ((_hostname: string, options: unknown, callback: unknown) => {
+    const done = callback as (
+      error: NodeJS.ErrnoException | null,
+      address: string,
+      family: number,
+    ) => void;
+    const wantsAll = (options as { all?: boolean } | undefined)?.all === true;
+    if (wantsAll) {
+      done(null, [{ address, family }] as never, family);
+      return;
+    }
+    done(null, address, family);
+  }) as unknown as LookupFunction;
 }
 
 /**
@@ -119,33 +174,73 @@ export async function fetchText(
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const maxRedirects = options.maxRedirects ?? DEFAULT_MAX_REDIRECTS;
   let current = rawUrl;
+
   for (let hop = 0; hop <= maxRedirects; hop += 1) {
-    const url = await assertFetchable(current);
-    const response = await fetch(url, {
-      redirect: "manual",
-      signal: AbortSignal.timeout(timeoutMs),
-      headers: { accept: "text/plain, application/json, */*" },
-    });
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
+    const resolved = await resolvePublic(current);
+    const { status, headers, body } = await readOnce(resolved, maxBytes, timeoutMs);
+
+    if (status >= 300 && status < 400) {
+      const location = headers.location;
       if (!location) {
         throw new UnsafeUrlError("the server redirected without saying where");
       }
-      current = new URL(location, url).toString();
+      current = new URL(location, resolved.url).toString();
       continue;
     }
-    if (!response.ok) {
-      throw new Error(`the log host answered HTTP ${response.status}`);
-    }
-    const declared = Number(response.headers.get("content-length") ?? "0");
-    if (declared && declared > maxBytes) {
-      throw new Error("the log is larger than we will read");
-    }
-    const body = await response.text();
-    if (body.length > maxBytes) {
-      throw new Error("the log is larger than we will read");
+    if (status < 200 || status >= 300) {
+      throw new Error(`the log host answered HTTP ${status}`);
     }
     return { url: current, body };
   }
   throw new UnsafeUrlError("too many redirects");
+}
+
+interface ResponseHead {
+  status: number;
+  headers: Record<string, string | string[] | undefined>;
+  body: string;
+}
+
+/** One HTTPS request, to the address we checked, with the name still in TLS. */
+function readOnce(
+  resolved: ResolvedUrl,
+  maxBytes: number,
+  timeoutMs: number,
+): Promise<ResponseHead> {
+  return new Promise((resolve, reject) => {
+    const request = httpsRequest(
+      resolved.url,
+      {
+        method: "GET",
+        // The connection goes to the address that was checked.
+        lookup: createPinnedLookup(resolved.address, resolved.family),
+        headers: { accept: "text/plain, application/json, */*" },
+        signal: AbortSignal.timeout(timeoutMs),
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        let size = 0;
+        response.on("data", (chunk: Buffer) => {
+          size += chunk.length;
+          if (size > maxBytes) {
+            request.destroy();
+            reject(new Error("the log is larger than we will read"));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        response.on("end", () => {
+          resolve({
+            status: response.statusCode ?? 0,
+            headers: response.headers as ResponseHead["headers"],
+            body: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+        response.on("error", reject);
+      },
+    );
+    request.on("timeout", () => request.destroy(new Error("the request timed out")));
+    request.on("error", reject);
+    request.end();
+  });
 }

@@ -13,7 +13,12 @@
       "reason": "This purchase adds the fact to cover: current ETH price and 24h change, which is the best available direct match within budget.",
       "fact": "current ETH price and 24h change"
     },
-    "hash": "0xf1253e5357e5bc5e8e305b9ca04c84a9588c6e76676de2fdb13d7f0c84c0829f",
+    "session": {
+      "id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
+      "max_amount_per_tx": "0.002",
+      "max_total_amount": "0.0025"
+    },
+    "hash": "0xb41a0b5b1c1aa3d662021ba5e545d3065dda452e05b43703dd09026f1b6654c2",
     "prev": "0x0000000000000000000000000000000000000000000000000000000000000000"
   },
   {
@@ -30,8 +35,13 @@
       "reason": "Buys the best available partial-coverage endpoint for the fact_to_cover: sentiment and recent headlines. It adds recent crypto news context that can support a cautious ETH assessment, while staying within budget.",
       "fact": "sentiment and recent headlines"
     },
-    "hash": "0x92aa1bc8f782f6ccdeca2732cdc82f22e68cdceb24d5ef2a236fc4a9052f1cd8",
-    "prev": "0xf1253e5357e5bc5e8e305b9ca04c84a9588c6e76676de2fdb13d7f0c84c0829f"
+    "session": {
+      "id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
+      "max_amount_per_tx": "0.002",
+      "max_total_amount": "0.0025"
+    },
+    "hash": "0x483d5ce88bee6b0246b107a0042041fb1f7dc01121c0e09b0276f58cf8121e9a",
+    "prev": "0xb41a0b5b1c1aa3d662021ba5e545d3065dda452e05b43703dd09026f1b6654c2"
   },
   {
     "seq": 2,
@@ -48,8 +58,13 @@
       "reason": "This purchase best covers the fact to_cover: search interest and trend over the last month. It directly provides Google Trends interest over time for ETH across the last 30 days, which is the strongest match for assessing month-long search interest and trend.",
       "fact": "search interest and trend over the last month"
     },
-    "hash": "0x0b0268271c4dc903422a077f1f7bffb242ffd1e3863ff20ee1bda20bb6809c95",
-    "prev": "0x92aa1bc8f782f6ccdeca2732cdc82f22e68cdceb24d5ef2a236fc4a9052f1cd8"
+    "session": {
+      "id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
+      "max_amount_per_tx": "0.002",
+      "max_total_amount": "0.0025"
+    },
+    "hash": "0xbd1c530a2e2346f761a2d12facbb5fd6cd8b476f111fb01546959d4f42ffb0eb",
+    "prev": "0x483d5ce88bee6b0246b107a0042041fb1f7dc01121c0e09b0276f58cf8121e9a"
   },
   {
     "seq": 3,
@@ -66,7 +81,12 @@
       "reason": "This endpoint best adds the requested fact_to_cover, because live funding, open interest, liquidations, and long/short ratios are the most direct proxy for ETH volatility and drawdown risk within budget.",
       "fact": "volatility and drawdown"
     },
-    "hash": "0x6ab76d14fe58ea60c1f5f9a0cf9a4319ad9a37ce7c888c464f74a8ea848e581e",
-    "prev": "0x0b0268271c4dc903422a077f1f7bffb242ffd1e3863ff20ee1bda20bb6809c95"
+    "session": {
+      "id": "agent_session_01a1ce43-9ea9-7025-a2a1-56d7734327cb",
+      "max_amount_per_tx": "0.002",
+      "max_total_amount": "0.0025"
+    },
+    "hash": "0xd6af6f6b610a8f1410ed38ea66742a3bd772fbc05543164c51f8779655c08839",
+    "prev": "0xbd1c530a2e2346f761a2d12facbb5fd6cd8b476f111fb01546959d4f42ffb0eb"
   }
 ]

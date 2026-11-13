@@ -5,7 +5,12 @@ the X posts and submit the form — I do not.**
 
 ## The claim
 
-> **Every purchase your agent made, every one it was refused, and the price of each.**
+> **Capsule is the only thing that can tell you what your spending limit cost you.**
+
+Your agent asked for $0.05 of market data. Your cap was $0.002. The Passport refused it.
+That $0.05 was **20× your entire budget** — and nobody knew, because nothing else records
+what an agent was *refused*, at the real price, against the budget the user signed with a
+passkey.
 
 Refusals decided by your Kite Passport session, not by the agent.
 
@@ -37,32 +42,47 @@ Refusals decided by your Kite Passport session, not by the agent.
 
 ## The write-up (field 7)
 
-> Capsule is the record of what your AI agent did with your money — including the
-> purchases it was refused.
+> **Capsule is the only thing that can tell you what your spending limit cost you.**
 >
-> The problem: when you let an agent spend real money, the agent is usually also the
-> thing holding the limit. A budget guard written into its own repository is a number
-> the agent can read, and the refusals that guard produces are the agent's own account of
-> itself. When a purchase is later disputed, the operator has nothing.
+> Your agent asked for **$0.05** of market data. Your cap was **$0.002**. The Passport
+> refused it. That $0.05 was **20× your entire budget** — and nobody knew, because nothing
+> else records what an agent was *refused*, at the real price, against the budget the user
+> signed with a passkey.
+>
+> The problem: when you let an agent spend real money, the agent is usually also the thing
+> holding the limit. A budget guard written into its own repository is a number the agent
+> can read, and the refusals that guard produces are the agent's own account of itself.
+> When a purchase is later disputed, the operator has nothing.
 >
 > Capsule moves the limit out of the agent and keeps the record. SERV Reasoning decides
 > what to buy and when to stop. A Kite Passport session, approved with the user's passkey
 > and held in the Passport's backend, is the only thing that can release funds; the
 > merchant settles the USDC on Base mainnet through x402.
 >
-> In the recorded run the agent was given one question — a cautious assessment of ETH —
-> and a budget of $0.0025 with a $0.002 ceiling on any single purchase. It made four
-> attempts. Two payments settled on chain, $0.001 each, each a USDC transfer of exactly
-> 1000 base units. Two were refused by the Passport: the $0.05 endpoint that would
-> actually have answered the trend question, over the per-call ceiling, and then a
-> cheaper substitute, over the total budget. The agent covered two of the five facts the
-> answer needed and named the other three as unchecked rather than guessing.
+> **We measured the cost of a limit instead of asserting it.** The same task, the same
+> agent, the same five facts — run twice with one number changed. Under the $0.0025
+> budget: two purchases settled on chain at $0.001 each, and two purchases refused — the
+> $0.05 endpoint that would actually have answered the trend question, over the per-call
+> ceiling, and then a cheaper substitute, over the total budget. Under a $0.10 budget:
+> three purchases settled, none refused, **including the $0.05 endpoint the first run was
+> refused** (transaction `0xd769e940…`). One variable changed, and the outcome changed
+> with it. That is the difference between an assertion and an experiment.
+>
+> **A third party can use it without trusting us.** An agent owner publishes their
+> decision log anywhere and hands over the link; Capsule fetches it, checks its hash
+> chain, reads every payment off the chain, and answers what was really bought, what was
+> refused and what the limit cost. Nothing is stored. `GET /verify?log=<url>`.
 >
 > The record has three independent anchors. The refusals were decided by the Passport,
-> not by us. The payments are transactions on Base, re-read from the chain at request
-> time by `/proof.json`. And the record itself is hash-chained and signed by the agent's
-> runtime key, which Kite publishes against the agent's DID in its public directory — so
-> a third party can check the record without trusting this program.
+> not by us. The payments are transactions on Base, re-read from the chain at request time
+> by `/proof.json`, with the sender asserted to be the session's own wallet. And the
+> record itself is hash-chained and signed by the agent's runtime key, which Kite
+> publishes against the agent's DID in its public directory — so the signature can be
+> checked against Kite rather than against us.
+>
+> One thing is deliberately left open: the refusals are the owner's claim, not a chain
+> fact, because a refusal leaves no transaction. We say so on our own security-model page
+> rather than in a footnote. Closing it is one attestation transaction per refusal.
 >
 > `npm run verify` runs fifteen checks against the live deployment, including that the
 > signature recovers to the address Kite publishes and that a tampered record does not
@@ -72,22 +92,23 @@ Refusals decided by your Kite Passport session, not by the agent.
 
 > We built **Capsule** for the **#SERVHackathon** Edition 02, Kite track.
 >
-> **Every purchase your agent made, every one it was refused, and the price of each.**
+> **Capsule is the only thing that can tell you what your spending limit cost you.**
 >
-> When you let an AI agent spend real money, the agent is usually also the one holding
-> the limit — a budget number inside its own repository, which it can read. And the
-> refusals it produces are its own account of itself.
+> Your agent asked for $0.05 of market data. Your cap was $0.002. The Passport refused it.
+> That $0.05 was **20× your entire budget** — and nobody knew, because nothing else records
+> what an agent was *refused*.
 >
-> Capsule moves the limit out of the agent, and keeps the record. **SERV Reasoning**
-> decides what to buy. A **Kite Passport** session, signed with a passkey and held
-> outside our program, is the only thing that can release the money.
+> When you let an AI agent spend real money, the agent is usually also the one holding the
+> limit — a budget number inside its own repository, which it can read. Capsule moves the
+> limit out of the agent, and keeps the record. **SERV Reasoning** decides what to buy. A
+> **Kite Passport** session, signed with a passkey and held outside our program, is the
+> only thing that can release the money.
 >
-> In our recorded run the agent tried to buy the endpoint that would actually have
-> answered the question. The Passport refused it, over the per-call ceiling. It tried a
-> cheaper substitute. The Passport refused that too, over the total budget. The agent
-> answered with what it had, and named the three facts it could not check.
+> And it is not a claim, it is a measurement: we ran the same task twice with one number
+> changed, and the $0.05 endpoint that was refused under the tight cap was **paid** under
+> the loose one.
 >
-> Live app and the receipts, re-checked against the chain:
+> Live app, and the record anyone can check:
 > https://capsule-phi-blond.vercel.app
 >
 > Repo: https://github.com/unifyWeb3/capsule
@@ -99,11 +120,17 @@ Refusals decided by your Kite Passport session, not by the agent.
 > The run, every number checked against Base:
 > https://capsule-phi-blond.vercel.app/proof.json
 >
-> Four attempts. Two settled on chain, $0.001 each. Two refused by the Passport — over
-> the per-call cap, and over the total budget.
+> Four attempts. Two settled on chain, $0.001 each. Two refused by the Passport — over the
+> per-call cap, and over the total budget.
+>
+> **The limit cost $0.051 of evidence against a $0.0025 budget — 20.4×.** The same $0.05
+> endpoint settled in the contrast run, under a $0.10 budget. One variable changed.
 >
 > The record is hash-chained, and signed by the agent's key — the one Kite publishes for
 > its DID. `npm run verify` checks fifteen things against the live deployment.
+>
+> You can check **anyone's** record, not just ours. Hand over a log URL:
+> https://capsule-phi-blond.vercel.app/verify
 >
 > The refusal is the product.
 >
@@ -117,10 +144,18 @@ Refusals decided by your Kite Passport session, not by the agent.
 
 ## Still open
 
-- The contrast run: the same task under a larger limit, showing the agent completing
-  the purchase it was refused before. Needs one approval.
-- The demo video. Optional — the form accepts a demo link and the live app is one.
+- The demo video. The form accepts a demo link and the live app is one, but a 90-second
+  video is the cheapest remaining lever on the judging.
 - Fields 14, 16, 17, 20, 21 — the user's call.
-- **Data collection must be enabled** at `console.openserv.ai/settings/organization`.
-  This is an eligibility gate, not a detail.
-- The submission itself.
+- The submission itself. **Do not submit on the strength of the artifact alone** — the
+  submission is an authorized action and the last step.
+
+## Done since the last version of this pack
+
+- The contrast run: the same task under a $0.10 budget, showing the agent completing the
+  $0.05 purchase it was refused before. It is on `/runs` and in the receipts.
+- The third-party path: `GET /verify?log=<url>` verifies **anyone's** published record,
+  and `/verify` shows the check happening step by step.
+- The log now carries the session inside the hash chain, so the budget a third party
+  reads is covered by the signature, not just asserted. See `docs/PROVENANCE.md`.
+- The security-model page: what Capsule does **not** prove, in our own words.

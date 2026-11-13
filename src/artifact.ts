@@ -28,6 +28,8 @@ export interface ArtifactInput {
   fallbackSession?: LogSession | null;
   attestation?: Receipts["attestation"];
   publishedKey?: Receipts["published_key"];
+  /** The reasoning trail, when the run captured one. */
+  serv?: Receipts["serv"];
   /** The receipts the artifact replaces, kept for the fields the log lacks. */
   previous?: Receipts | null;
 }
@@ -76,6 +78,7 @@ export async function buildArtifact(
     seller: input.seller,
     attestation: input.attestation,
     publishedKey: input.publishedKey,
+    serv: input.serv,
     task: input.task,
     claim: input.claim,
   });

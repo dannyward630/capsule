@@ -34,6 +34,45 @@ export interface ReceiptStep {
   session_id: string | null;
   spent_total_after: string | null;
   paid_at: string | null;
+  /** The fact the answer needed, which this attempt was for. */
+  fact: string | null;
+  /** What the model said this purchase was for, in its own words. */
+  reason: string | null;
+}
+
+/** One call to the reasoning layer. */
+export interface ServCall {
+  at: string;
+  model: string;
+  purpose: string;
+  latency_ms: number;
+  usage: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  } | null;
+  serv_features: string[] | null;
+  error: string | null;
+}
+
+/**
+ * The reasoning trail.
+ *
+ * Two parts, with different provenance, and the difference matters:
+ *
+ * - `calls` is the transport log — model, tokens, latency. It is captured when
+ *   a run happens.
+ * - the per-step `reason` on each receipt is the model's own account of why it
+ *   wanted each purchase. It lives in the signed log, so it is covered by the
+ *   hash chain even for a run recorded before the transport log existed.
+ *
+ * `answer` is the text the agent finally wrote from the evidence it bought.
+ */
+export interface ServTrail {
+  model: string | null;
+  calls: ServCall[];
+  answer: string | null;
+  note: string;
 }
 
 export interface LogSession {
@@ -90,6 +129,8 @@ export interface Receipts {
     address: string;
     active: boolean;
   } | null;
+  /** The reasoning trail: the transport log, and the answer it produced. */
+  serv: ServTrail;
   counterfactual: {
     facts: Array<{
       fact: string;

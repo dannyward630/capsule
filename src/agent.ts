@@ -15,7 +15,7 @@ import {
   type Menu,
   type MenuEntry,
 } from "./menu.js";
-import type { ReceiptStep } from "./proof.js";
+import type { ReceiptStep, ServCall } from "./proof.js";
 import type { Decision, DecisionLog, LogRecord } from "./log.js";
 
 export interface AgentOptions {
@@ -35,7 +35,7 @@ export interface AgentRun {
   evidence: Array<{ id: string; label: string; data: unknown }>;
   refusals: Array<{ endpoint: string; error_code: string; message: string }>;
   answer: string;
-  servCalls: unknown[];
+  servCalls: ServCall[];
   session: {
     session_id: string | null;
     max_amount_per_tx: string | null;
@@ -160,7 +160,7 @@ export class Agent {
       }
 
       const result = await this.kpass.pay(entry.url, randomUUID(), entry.method);
-      const step = toStep(index + 1, entry, result);
+      const step = toStep(index + 1, entry, result, factToCover, decision.reason);
       steps.push(step);
 
       if (result.ok) {
@@ -446,7 +446,13 @@ function mergeSession(
   };
 }
 
-function toStep(n: number, entry: MenuEntry, result: KpassResult): ReceiptStep {
+function toStep(
+  n: number,
+  entry: MenuEntry,
+  result: KpassResult,
+  fact: string | null = null,
+  reason: string | null = null,
+): ReceiptStep {
   const label = `${entry.service} ${entry.path}`;
   if (result.ok) {
     return {
@@ -462,6 +468,8 @@ function toStep(n: number, entry: MenuEntry, result: KpassResult): ReceiptStep {
       session_id: result.session_id ?? null,
       spent_total_after: result.usage?.spent_total ?? null,
       paid_at: new Date().toISOString(),
+      fact,
+      reason,
     };
   }
   return {
@@ -477,6 +485,8 @@ function toStep(n: number, entry: MenuEntry, result: KpassResult): ReceiptStep {
     session_id: null,
     spent_total_after: result.usage?.spent_total ?? null,
     paid_at: null,
+    fact,
+    reason,
   };
 }
 

@@ -39,6 +39,22 @@ export interface PublishedRecord {
   prev?: string;
 }
 
+/** One step of the check, so a reader can watch it happen. */
+export interface TraceStep {
+  n: number;
+  /** What was checked. */
+  label: string;
+  /** What the check found. */
+  detail: string;
+  /**
+   * ok    - the check passed
+   * warn  - the check could not be made, and that is not a failure
+   * fail  - the check failed
+   * info  - a fact, not a check
+   */
+  state: "ok" | "warn" | "fail" | "info";
+}
+
 export interface PublishedProof {
   status: "verified" | "partially_verified" | "unverified";
   source: string;
@@ -79,6 +95,8 @@ export interface PublishedProof {
     tx_hash: string | null;
   }>;
   chain_checks: ChainCheck[];
+  /** The check, step by step. */
+  trace: TraceStep[];
   notes: string[];
 }
 
@@ -151,7 +169,20 @@ export async function verifyPublishedLog(
   }
 
   const notes: string[] = [];
+  const trace: TraceStep[] = [];
+  let traceNumber = 0;
+  const step = (
+    label: string,
+    detail: string,
+    state: TraceStep["state"] = "ok",
+  ): void => {
+    traceNumber += 1;
+    trace.push({ n: traceNumber, label, detail, state });
+  };
   const firstChain = chainByName(records.find((r) => r.decision?.chain)?.decision?.chain);
+  step("fetched the log", `${fetchedFrom} — ${body.length} bytes`);
+  step("parsed the records", `${records.length} decisions read`, "info");
+
   const capsuleLog = isCapsuleLog(records);
   let chainState: PublishedProof["log_chain"] = "not_a_capsule_log";
   let chainDetail: string | null = null;
@@ -159,9 +190,21 @@ export async function verifyPublishedLog(
     const result = await verifyLogChain(records);
     chainState = result.ok ? "verified" : "broken";
     chainDetail = result.detail;
+    step(
+      "checked the hash chain",
+      result.ok
+        ? `intact across all ${records.length} records`
+        : `broken — ${result.detail}`,
+      result.ok ? "ok" : "fail",
+    );
   } else {
     notes.push(
       "This log is not in Capsule's hash-chained format, so its hash chain was not checked. The payments below were still verified against the chain.",
+    );
+    step(
+      "checked the hash chain",
+      "not in Capsule's format — skipped. The payments below were still verified.",
+      "warn",
     );
   }
 
@@ -171,6 +214,15 @@ export async function verifyPublishedLog(
     max_amount_per_tx: sessionRecord?.max_amount_per_tx ?? null,
     max_total_amount: sessionRecord?.max_total_amount ?? null,
   };
+  step(
+    "read the session the log records",
+    session.id
+      ? `${session.id} — ${
+          session.max_amount_per_tx ? `$${session.max_amount_per_tx} per call` : "no per-call cap"
+        }, ${session.max_total_amount ? `$${session.max_total_amount} in total` : "no total budget"}`
+      : "the log records no session, so the budget cannot be read from it",
+    session.id ? "ok" : "warn",
+  );
 
   const steps: PublishedProof["steps"] = [];
   const checks: ChainCheck[] = [];
@@ -196,7 +248,7 @@ export async function verifyPublishedLog(
       reader = new ChainReader(chain);
       readers.set(chain.id, reader);
     }
-    const step: ReceiptStep = {
+    const receiptStep: ReceiptStep = {
       n: index,
       url: decision.url ?? "",
       endpoint: decision.service ?? "",
@@ -209,15 +261,29 @@ export async function verifyPublishedLog(
       session_id: session.id,
       spent_total_after: null,
       paid_at: records[index]!.at ?? null,
+      fact: decision.fact ?? null,
+      reason: decision.reason ?? null,
     };
-    checks.push(
-      await verifyStep(
-        step,
-        chain,
-        expectedBaseUnits(decision.price_usd ?? "0", chain),
-        null,
-        reader,
-      ),
+    const check = await verifyStep(
+      receiptStep,
+      chain,
+      expectedBaseUnits(decision.price_usd ?? "0", chain),
+      null,
+      reader,
+    );
+    checks.push(check);
+    step(
+      `read the payment for ${decision.service ?? "(unnamed)"} from ${chain.network}`,
+      check.outcome === "confirmed"
+        ? `a transfer of ${decision.price_usd} was confirmed at block ${
+            check.block_number ?? "?"
+          }, ${check.confirmations ?? 0} confirmations, to ${check.recipient ?? "?"}`
+        : check.note,
+      check.outcome === "confirmed"
+        ? "ok"
+        : check.outcome === "unavailable"
+          ? "warn"
+          : "fail",
     );
   }
 
@@ -236,6 +302,23 @@ export async function verifyPublishedLog(
   );
   const budget = options.budgetUsd ?? Number(session.max_total_amount ?? 0);
   const allConfirmed = checks.length > 0 && checks.every((check) => check.outcome === "confirmed");
+
+  step(
+    "read the refusals",
+    refusals.length
+      ? `${refusals.length} refused, priced at $${fromBaseUnits(refused, decimals)} from the log the owner published`
+      : "none",
+    refusals.length ? "warn" : "info",
+  );
+  step(
+    "priced the limit",
+    budget > 0
+      ? `$${fromBaseUnits(refused, decimals)} of evidence refused against a $${budget} budget — ${(
+          Number(refused) / Number(toBaseUnits(String(budget), decimals))
+        ).toFixed(1)}x the whole budget`
+      : `$${fromBaseUnits(refused, decimals)} of evidence refused, against no budget the log records`,
+    "warn",
+  );
 
   return {
     status: allConfirmed && chainState !== "broken" ? "verified" : "partially_verified",
@@ -268,6 +351,7 @@ export async function verifyPublishedLog(
     },
     steps,
     chain_checks: checks,
+    trace,
     notes,
   };
 }

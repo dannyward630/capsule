@@ -69,6 +69,8 @@ function step(): ReceiptStep {
     session_id: null,
     spent_total_after: "0.001",
     paid_at: null,
+    fact: null,
+    reason: null,
   };
 }
 
