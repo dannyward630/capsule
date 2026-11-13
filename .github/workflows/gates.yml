@@ -24,7 +24,7 @@ permissions:
 jobs:
   gates:
     name: tests, types, markup, generated files
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +54,9 @@ jobs:
 
   audit:
     name: every page, in a browser
-    runs-on: ubuntu-latest
+    # Pinned, not `latest`: Playwright 1.56 does not ship a Chromium for
+    # ubuntu-26.04, and an audit that cannot install a browser is not an audit.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
