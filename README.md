@@ -29,6 +29,8 @@ the limit is a measurement and not an assertion.
 | **Live app** | **Proof endpoint** | **Repository** | **Agent identity** | **Settlement** |
 | `capsule-phi-blond.vercel.app` | `/proof.json` | `github.com/unifyWeb3/capsule` | `did:kite:ind-akoladefatoki108:capsule-agent` | Base mainnet, USDC |
 
+[![gates](https://github.com/unifyWeb3/capsule/actions/workflows/gates.yml/badge.svg)](https://github.com/unifyWeb3/capsule/actions/workflows/gates.yml)
+
 Built for the **SERV Hackathon, Edition 02 — Kite track**.
 
 ---

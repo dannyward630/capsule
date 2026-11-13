@@ -1,0 +1,74 @@
+name: gates
+
+# The gates are the product's claim, so they run on every push. A judge who
+# clones this repository should be able to see, without asking, that the
+# numbers on the page are the numbers in the code.
+#
+#   gates  — no network, no keys, no money: tests, types, the escaping layer,
+#            and the generated files not drifting
+#   audit  — every page, in a real browser, at two widths
+#
+# The live checks (`npm run verify`) are deliberately not in here: they assert
+# facts about a deployment, not about the code, and a red build caused by a
+# public RPC would say nothing about this repository.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    name: tests, types, markup, generated files
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: install
+        run: npm ci
+
+      - name: unit tests
+        run: npm test
+
+      - name: type check
+        run: npm run typecheck
+
+      - name: the markup layer
+        run: npm run markup
+
+      - name: the generated files must not drift
+        run: |
+          npm run claims
+          npm run readme
+          git diff --exit-code README.md docs/CLAIMS.md
+
+  audit:
+    name: every page, in a browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: install
+        run: npm ci
+
+      - name: install chromium
+        run: npx playwright-core install --with-deps chromium
+
+      - name: audit the live deployment
+        run: npm run audit
