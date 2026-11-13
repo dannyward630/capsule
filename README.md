@@ -149,7 +149,25 @@ Three checks, and they are independent of each other:
 | **The refusals** | **any** log with a priced refusal | what the agent was refused and what it would have cost — the owner's claim, and the reason it matters |
 | **The hash chain** | logs written in Capsule's format | no earlier decision was edited — a bonus for people who write in our format, and the reason the format is published |
 
-A log in any other format still has its payments verified. Only the hash chain is
+**You do not have to write in our format.** The reader is tolerant: it looks for the
+price, the transaction hash, the chain, the endpoint and the error code under the names
+other systems use — `price_usd`, `amount_usd`, `cost.usd`; `tx_hash`, `tx`,
+`settlement.tx`; `network`, `settlement.network`; `service`, `provider`,
+`target.provider`. A field it cannot find is left empty, never guessed.
+
+There is a worked example, so you do not have to take our word for it: the same two
+payments and two refusals as our recorded run, written in a flat schema with no hash
+chain and different key names.
+
+```
+https://capsule-phi-blond.vercel.app/examples/foreign-log.jsonl
+```
+
+```bash
+curl "https://capsule-phi-blond.vercel.app/verify?log=https://capsule-phi-blond.vercel.app/examples/foreign-log.jsonl&format=json"
+```
+
+Its payments are confirmed against the chain exactly as ours are. Its hash chain is
 skipped, and the answer says so.
 
 Our own log is published, so the path has a real example to point at:
@@ -197,6 +215,7 @@ itself is signed with the key Kite publishes for the agent's DID.
 | `/docs/format` | The log format, and a writer you can copy |
 | `/proof.json` | The same facts as JSON, no account, no session |
 | `/decision-log.jsonl` | The published log itself |
+| `/examples/foreign-log.jsonl` | The same run in another format, as a worked example |
 | `/runs.json`, `/runs/:id.json` | The runs, as data |
 
 ## How the limit is enforced

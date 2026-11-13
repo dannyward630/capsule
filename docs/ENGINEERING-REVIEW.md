@@ -187,6 +187,7 @@ false claim and one stale one. The notes for that audit are in
 | The A/B — the strongest evidence the project owns — had no screen | `/runs` and `/runs/:id`, plus the contrast log published at `/runs/contrast/decision-log.jsonl` |
 | `/verify` returned a JSON blob, which asks for trust instead of teaching it | `/verify` is now an **interactive trace**: fetched → parsed → hash chain intact → each transfer confirmed on Base → the refusals → the limit cost. The JSON answer moved to `?format=json` and the curl example in the README says so |
 | The log format was undocumented | `/docs/format` publishes the spec and the writer (`public/log-writer.mjs`), and a test writes a log with the published writer and verifies it with our implementation, so the page cannot drift from the code |
+| **"Capsule verifies any agent's spending record" was only true for logs in our own shape** — the reader looked for `decision.kind`, `decision.price_usd` and `decision.tx_hash`, so a third party's log in any other format would have been skipped | The reader is tolerant now (`src/normalize.ts`): it looks for the price, the transaction, the chain, the endpoint, the error code and the budget under the names other systems use, one JSON object per line, and leaves a field empty rather than guessing it. A worked example ships with it — the same two payments and two refusals as our recorded run, in a flat schema with no hash chain and different key names — and its payments are confirmed against Base exactly as ours are |
 | `docs/EVENT-RULES.md` was stale in ways that mis-planned the endgame | Updated: the repository, the account, the deployment target and the URL are recorded as they are; the Layer-A criteria and the benchmark are filled in with citations |
 
 ## What was cut, and why
@@ -217,7 +218,7 @@ building; the decision about how it measures coverage is worth making first.
 
 | Gate | Result |
 | --- | --- |
-| `npm test` | 40/40 |
+| `npm test` | 45/45 |
 | `npx tsc --noEmit` | clean |
 | `npm run verify` | 15/15 against the live deployment |
-| Browser audit, 8 pages at 1440px and 390px | no findings: no console errors, no overflow, contrast ≥ 4.5 |
+| Browser audit, 9 pages at 1440px and 390px | no findings: no console errors, no overflow, contrast ≥ 4.5 |

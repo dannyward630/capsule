@@ -15,6 +15,11 @@ import { fetchText } from "./net.js";
 import { ChainReader, expectedBaseUnits, verifyStep, type ChainCheck, type ReceiptStep } from "./proof.js";
 import { chainByName, type SettlementChain } from "./chains.js";
 import { fromBaseUnits, toBaseUnits } from "./units.js";
+import {
+  normaliseDecision,
+  normaliseSession,
+  type CanonicalDecision,
+} from "./normalize.js";
 
 export interface PublishedDecision {
   kind?: string;
@@ -90,7 +95,7 @@ export interface PublishedProof {
     endpoint: string;
     url: string;
     price_usd: string;
-    outcome: "paid" | "refused";
+    outcome: "paid" | "refused" | "other";
     error_code: string | null;
     tx_hash: string | null;
   }>;
@@ -208,7 +213,7 @@ export async function verifyPublishedLog(
     );
   }
 
-  const sessionRecord = records.find((record) => record.session)?.session;
+  const sessionRecord = normaliseSession(records);
   const session = {
     id: sessionRecord?.id ?? null,
     max_amount_per_tx: sessionRecord?.max_amount_per_tx ?? null,
@@ -228,21 +233,35 @@ export async function verifyPublishedLog(
   const checks: ChainCheck[] = [];
   const readers = new Map<string, ChainReader>();
 
+  const normalised: CanonicalDecision[] = records.map((record) =>
+    normaliseDecision(record as Record<string, unknown>),
+  );
+  const foreignShape = records.every(
+    (record) => !record.decision && !record.hash,
+  );
+  if (foreignShape) {
+    step(
+      "recognised the record shape",
+      `not Capsule's — read anyway. The prices, transactions, chain and refusals were found under other names.`,
+      "info",
+    );
+  }
+
   for (let index = 0; index < records.length; index += 1) {
-    const decision = records[index]!.decision ?? {};
-    const isPurchase = decision.kind === "purchase" || Boolean(decision.tx_hash);
+    const decision = normalised[index]!;
+    const isPurchase = decision.kind === "purchase" && Boolean(decision.tx_hash);
     steps.push({
       n: index,
       endpoint: decision.service ?? "(unnamed)",
       url: decision.url ?? "",
       price_usd: decision.price_usd ?? "0",
-      outcome: isPurchase ? "paid" : "refused",
+      outcome: isPurchase ? "paid" : decision.kind === "refusal" ? "refused" : "other",
       error_code: decision.error_code ?? null,
       tx_hash: decision.tx_hash ?? null,
     });
     if (!isPurchase || !decision.tx_hash) continue;
 
-    const chain: SettlementChain = chainByName(decision.chain);
+    const chain: SettlementChain = chainByName(decision.chain ?? undefined);
     let reader = readers.get(chain.id);
     if (!reader) {
       reader = new ChainReader(chain);
@@ -291,7 +310,9 @@ export async function verifyPublishedLog(
   const refusals = steps.filter((step) => step.outcome === "refused");
   // The decimals come from the chain the record settled on. Base USDC and
   // Kite USDC.e are both six decimals.
-  const decimals = chainByName(records.find((r) => r.decision?.chain)?.decision?.chain).assetDecimals;
+  const decimals = chainByName(
+    normalised.find((decision) => decision.chain)?.chain ?? undefined,
+  ).assetDecimals;
   const spent = purchases.reduce(
     (total, step) => total + BigInt(toBaseUnits(step.price_usd, decimals)),
     0n,

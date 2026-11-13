@@ -130,11 +130,32 @@ await log.append({
 
           <h3>If you do not write in this format</h3>
           <p>
-            Your payments are still verified. All Capsule needs is a record with a
-            <code>decision.kind</code>, a <code>price_usd</code>, a <code>chain</code> and a
-            <code>tx_hash</code> — one JSON object per line. Only the hash chain is skipped,
-            and the answer says so.
+            <strong>Your payments are still verified.</strong> The reader is tolerant: it
+            looks for the fields it needs under the names other systems use, one JSON
+            object per line.
           </p>
+          <table class="checks">
+            <thead><tr><th>What it needs</th><th>Where it looks</th></tr></thead>
+            <tbody>
+              <tr><td class="wrap">the price</td><td class="wrap">price_usd · amount_usd · cost_usd · price · cost · cost.usd · amount</td></tr>
+              <tr><td class="wrap">the transaction</td><td class="wrap">tx_hash · tx · transaction_hash · settlement.tx · payment.tx</td></tr>
+              <tr><td class="wrap">the chain</td><td class="wrap">chain · network · settlement.network · payment.network</td></tr>
+              <tr><td class="wrap">the endpoint</td><td class="wrap">service · name · provider · endpoint.name · target.provider · merchant</td></tr>
+              <tr><td class="wrap">the refusal</td><td class="wrap">kind · action · status · outcome · error_code · error.code</td></tr>
+              <tr><td class="wrap">the budget</td><td class="wrap">session · limits · policy, with max_amount_per_tx and max_total_amount</td></tr>
+            </tbody>
+          </table>
+          <p>
+            A field it cannot find is left empty, never guessed. A price that is not a
+            number is not a price.
+          </p>
+          <p>
+            <strong>There is a worked example.</strong> The same two payments and two
+            refusals as our recorded run, written in a flat schema with no hash chain and
+            different key names — and verified exactly as ours are:
+          </p>
+          <pre>https://capsule-phi-blond.vercel.app/examples/foreign-log.jsonl</pre>
+          <pre>curl "https://capsule-phi-blond.vercel.app/verify?log=https://capsule-phi-blond.vercel.app/examples/foreign-log.jsonl&amp;format=json"</pre>
         </div>
       </section>
 

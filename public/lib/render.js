@@ -68,8 +68,13 @@ export function renderRecord(proof) {
   const rows = proof.steps
     .map((step) => {
       const paid = step.outcome === "paid";
+      const other = step.outcome === "other";
       const check = step.tx_hash ? checks.get(step.tx_hash) : null;
-      const reason = paid ? "the session allowed it" : plainError(step.error_code);
+      const reason = paid
+        ? "the session allowed it"
+        : other
+          ? "not a purchase and not a refusal — we could not read this one"
+          : plainError(step.error_code);
       const meta = [];
       if (paid && step.tx_hash) {
         meta.push(
@@ -102,7 +107,10 @@ export function renderRecord(proof) {
           ${meta.length ? `<div class="meta">${meta.map((m) => `<span>${m}</span>`).join("")}</div>` : ""}
         </div>
         <div class="price">
-          ${statusChip(paid ? "settled" : "refused", paid ? "settled" : "refused")}
+          ${statusChip(
+            paid ? "settled" : other ? "neutral" : "refused",
+            paid ? "settled" : other ? "unread" : "refused",
+          )}
           <div style="margin-top:7px">${escape(money(step.price_usd))}</div>
         </div>
       </li>`;
